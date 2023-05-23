@@ -41,8 +41,11 @@ report.fail_under = 100
 [tool.mypy]
 strict = true
 
-[tool.pylint."MESSAGES CONTROL"]
+[tool.pylint."BASIC"]
+min-public-methods = 0
 variable-naming-style = "any"  # relax C0103 invalid-name, rejecting `p0`
-argument-naming-style = "any"  # relax C0103 invalid-name, rejecting `x`
+argument-naming-style = "any"  # relax C0102 invalid-name, rejecting `x`
+
+[tool.pylint."MESSAGES CONTROL"]
 disable = [
 ]

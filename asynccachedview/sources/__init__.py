@@ -5,4 +5,4 @@
 
 from asynccachedview.sources import _http as http
 
-__all__ = ['http']
+__all__ = ('http',)

@@ -19,15 +19,15 @@ class Post:
     text: str
 
     @classmethod
-    async def __obtain__(cls, id):
+    async def __obtain__(cls, id_):
         # working with session directly, intentially presenting both ways
         async with asynccachedview.sources.http.shared_session() as sess:
             async with sess.get('http://ex.ample/post',
-                                params={'id': id}) as resp:
+                                params={'id': id_}) as resp:
                 assert resp.status == 200
                 j = await resp.json()
-                assert j['id'] == id
-                return cls(id, j['text'])
+                assert j['id'] == id_
+                return cls(id_, j['text'])
 
     @property
     async def comments(self):
@@ -42,23 +42,27 @@ class Post:
 
 @asynccachedview.dataclass(identity=('id',))  # this is the default
 class Comment:
+    """Example dataclass to represent a blog post's comment."""
+
     id: int
     post_id: int
     text: str
 
     @classmethod
-    async def __obtain__(cls, id):
+    async def __obtain__(cls, id_):
         url = 'http://ex.ample/comment'
-        async with asynccachedview.sources.http.json(url, id=id) as j:
-            assert j['id'] == id
-            return cls(id, j['post_id'], j['text'])
+        async with asynccachedview.sources.http.json(url, id=id_) as j:
+            assert j['id'] == id_
+            return cls(id_, j['post_id'], j['text'])
 
     @property
     async def post(self):
+        """Parent post."""
         return await Post.__obtain__(self.post_id)
 
 
 def setup_mocked_data(mocked):
+    """Configure `aioresponses.aioresponses()` to output example data."""
     mocked.get('http://ex.ample/post?id=0', status=200,
                payload={'id': 0, 'text': 'post0'},
                repeat=True)
@@ -76,6 +80,7 @@ def setup_mocked_data(mocked):
 
 @pytest.mark.asyncio
 async def test_using_cache() -> None:
+    """Test our dataclasses operation with a cache."""
     async with asynccachedview.Cache() as acv:
         with aioresponses.aioresponses() as mocked:
             setup_mocked_data(mocked)
@@ -97,9 +102,9 @@ async def test_using_cache() -> None:
             assert await(comments[0].post) is p0
             assert await(comments[1].post) is p0
             # check that all the objects are cached (TODO: check offline)
-            assert p0._cache is acv
-            assert c0._cache is acv
-            assert c1._cache is acv
+            assert p0._cache is acv  # pylint: disable=protected-access
+            assert c0._cache is acv  # pylint: disable=protected-access
+            assert c1._cache is acv  # pylint: disable=protected-access
         # now we go offline...
         with pytest.raises(aiohttp.client_exceptions.ClientConnectorError):
             p0 = await acv.obtain(Post, 1)
@@ -112,9 +117,9 @@ async def test_using_cache() -> None:
 
 @pytest.mark.asyncio
 async def test_not_using_cache() -> None:
+    """Test our dataclasses operation without a cache."""
     with aioresponses.aioresponses() as mocked:
         setup_mocked_data(mocked)
-
         # basic querying
         p0 = await Post.__obtain__(0)
         assert p0.id == 0

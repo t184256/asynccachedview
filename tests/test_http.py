@@ -13,6 +13,8 @@ import asynccachedview
 
 @asynccachedview.dataclass
 class Post:
+    """Example dataclass to represent a blog post."""
+
     id: int
     text: str
 
@@ -29,6 +31,7 @@ class Post:
 
     @property
     async def comments(self):
+        """Blog post's comments."""
         url = 'http://ex.ample/comments'
         # shorter version, intentionally presenting both ways
         async with asynccachedview.sources.http.json(url,

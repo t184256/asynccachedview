@@ -13,6 +13,13 @@ import inspect
 
 class CacheHolder:
     __slots__ = 'cache'
+    """
+    Small mutable container to store cache associated with dataclass instance.
+
+    This is needed to have frozen dataclass instances associated with a cache
+    after their construction. It is attached to `_cache_holder` private field.
+    """
+
     def __init__(self):
         self.cache = None
 
@@ -23,6 +30,20 @@ class ACVDataclass:
 
 
 def dataclass(cls=None, /, *, identity='id'):
+    """
+    Define a dataclass based on a python class.
+
+    `identity` is an attribute name or a tuple of them
+    that define the "primary key" of the dataclass.
+    Instances of the dataclass with the same values for these keys
+    are considered the same instance. Defaults to `'id'`.
+
+    Has a similar interface to `@dataclasses.dataclass(frozen=True)`,
+    but also supports attaching objects to caches.
+
+    A dataclass `D` must define `async def __obtain__(*identity)`
+    that acts as a constructor when you later do `cache.obtain(D, *identity)`.
+    """
     if isinstance(identity, str):
         identity = (identity,)
     identity_field_names = identity

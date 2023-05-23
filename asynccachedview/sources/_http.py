@@ -17,6 +17,7 @@ async def shared_session():
     global _shared_session
     if _shared_session is None:
         _shared_session = await aiohttp.ClientSession().__aenter__()
+    """Create a shared `aiohttp.ClientSession`, cleaned up with event loop."""
 
         loop = asyncio.get_running_loop()
         original_close = loop.close
@@ -38,6 +39,7 @@ async def shared_session():
 
 @contextlib.asynccontextmanager
 async def json(url, **params):
+    """Fetch JSON from URL using shared session, asserting HTTP status 200."""
     async with shared_session() as sess:
         async with sess.get(url, params=params) as resp:
             assert resp.status == 200

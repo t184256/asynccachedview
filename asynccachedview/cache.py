@@ -98,7 +98,11 @@ class Cache:
         return self._associate_single(x)
 
     def associate_attribute(self, obj, attrname, attrval):
-        # for awaitable attrs only, rename?
+        """
+        Cache and associate `obj.attrname` awaitable property results.
+
+        Used for caching results of dataclasess' awaitable properties.
+        """
         print('ASSOCIATING AWAITABLE ATTRIBUTE', obj, attrname)
         try:
             return self.field_map[obj.__class__][obj.id][attrname]
@@ -109,5 +113,9 @@ class Cache:
             return attrval
 
     def cached_attribute(self, obj, attrname):
-        # for awaitable attrs only, rename?
+        """
+        Return cached `obj.attrname` awaitable property results.
+
+        Used for caching results of dataclasess' awaitable properties.
+        """
         return self.field_map[obj.__class__][obj.id][attrname]

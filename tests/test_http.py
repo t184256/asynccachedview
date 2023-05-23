@@ -130,8 +130,8 @@ async def test_not_using_cache() -> None:
         assert await(comments[0].post) is not p0
         assert await(comments[1].post) is not p0
         # check that the objects are not cached
-        assert p0._cache is None
-        assert c0._cache is None
-        assert c1._cache is None
-        assert (await comments[0].post)._cache is None
-        assert (await comments[1].post)._cache is None
+        assert p0._cache is None  # pylint: disable=protected-access
+        assert c0._cache is None  # pylint: disable=protected-access
+        assert c1._cache is None  # pylint: disable=protected-access
+        assert comments[0]._cache is None  # pylint: disable=protected-access
+        assert comments[1]._cache is None  # pylint: disable=protected-access

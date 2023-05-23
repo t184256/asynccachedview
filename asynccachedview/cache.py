@@ -11,7 +11,33 @@ import asynccachedview.core
 
 
 class Cache:
+    """
+    Implements an optional cache for your asynccachedview dataclasses.
+
+    Implements the following behaviour for dataclass objects:
+    * associates objects created through it with a cache,
+      objects accessed through them also associate them with a cache
+    * preserves object identity,
+      returning you the same object when the identity matches
+    * caches objects when constructed by identity,
+      allowing to access them offline later (not implemented yet)
+    * caches objects object's awaitable properties return,
+      so that they also can be used offline later (not implemented yet)
+
+    Example:
+    ```
+    with asynccachedview.Cache() as acv:
+        o = acv.obtain(MyClass, 1)  # caches it
+        c = await o.children  # caches the children objects as well
+    ```
+    """
+
     def __init__(self):
+        """
+        Create a new Cache object.
+
+        TODO: offline mode(s) of operation.
+        """
         self.id_map = collections.defaultdict(dict)
         self.field_map = collections.defaultdict(lambda:
                                                  collections.defaultdict(dict))
@@ -26,40 +52,49 @@ class Cache:
                         ) -> None:
         pass
 
-    async def obtain(self, desired_class, id):
-        print('quer', desired_class, id)
+    async def obtain(self, desired_dataclass, *identity):
+        """
+        Obtain an instance of the desired dataclass with specified identity.
+
+        Calls `desired_class.__obtain__(*identity)` under the hood
+        caches the result and associates it with the cache.
+        """
         try:
-            return self.id_map[desired_class][id]
+            return self.id_map[desired_dataclass][identity]
         except KeyError:
-            print('miss', desired_class, id)
-            return self._associate_single(await desired_class.__obtain__(id))
+            return self._associate_single(
+                await desired_dataclass.__obtain__(*identity)
+            )
 
     def _associate_single(self, obj):
         """
-        Associates an object with the cache.
+        Associates an already obtained/constructed object with the cache.
 
         Can return another object with same identity
-        if that object was associated with the cache first.
+        if that object was associated with the cache beforehand.
         """
         assert isinstance(obj, asynccachedview.core.ACVDataclass)
+        _cls = obj.__class__
+        _id = obj._identity  # pylint: disable=protected-access
         try:
-            return self.id_map[obj.__class__][obj.id]
+            return self.id_map[_cls][_id]
         except KeyError:
-            self.id_map[obj.__class__][obj.id] = obj
-        obj._set_cache(self)
+            self.id_map[_cls][_id] = obj
+        obj._set_cache(self)  # pylint: disable=protected-access
         return obj
 
     def associate(self, x):
         """
-        Associates an object or a container of them with the cache.
+        Associates one or more existing dataclass instances with the cache.
 
+        `x` might be a single object or a tuple of them.
         Can return different objects with same identity
-        if these objects were associated with the cache first.
+        if these objects were associated with the cache beforehand.
         """
         if isinstance(x, tuple):
             return tuple(self._associate_single(e) for e in x)
         if isinstance(x, list):
-            return [self._associate_single(e) for e in x]
+            raise RuntimeError('return a tuple, not a list')
         return self._associate_single(x)
 
     def associate_attribute(self, obj, attrname, attrval):

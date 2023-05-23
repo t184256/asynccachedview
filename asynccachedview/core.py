@@ -24,7 +24,8 @@ class ACVDataclass:
 
 def dataclass(cls=None, /, *, identity='id'):
     if isinstance(identity, str):
-        identity = tuple(identity)
+        identity = (identity,)
+    identity_field_names = identity
 
     def augment(cls):
         # Main function that upgrades the dataclass with caching
@@ -35,7 +36,12 @@ def dataclass(cls=None, /, *, identity='id'):
         @dataclasses.dataclass(frozen=True)
         class DataClass(dcls, ACVDataclass):
             # Knows which fields are the identity (primary key)
-            _identity = identity
+            _identity_field_names = identity_field_names
+
+            @property
+            def _identity(self):
+                return tuple(getattr(self, fname)
+                             for fname in self._identity_field_names)
 
             # Optionally remembers the cache associated with the object
             # HACKY, mutable container in frozen dataclass

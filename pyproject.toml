@@ -30,7 +30,7 @@ addopts = "--pylama --doctest-modules"
 linters = "pylint,pyflakes,pycodestyle,pydocstyle,mccabe,eradicate"
 
 [tool.pylama.linter.pydocstyle]
-ignore = "D212,D203,D105"
+ignore = "D212,D203,D105,D413,D407"
 
 [tool.coverage]
 run.source = ["asynccachedview"]
@@ -40,3 +40,9 @@ report.fail_under = 100
 
 [tool.mypy]
 strict = true
+
+[tool.pylint."MESSAGES CONTROL"]
+variable-naming-style = "any"  # relax C0103 invalid-name, rejecting `p0`
+argument-naming-style = "any"  # relax C0103 invalid-name, rejecting `x`
+disable = [
+]

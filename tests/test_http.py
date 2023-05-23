@@ -143,3 +143,7 @@ async def test_not_using_cache() -> None:
         assert c1._cache is None  # pylint: disable=protected-access
         assert comments[0]._cache is None  # pylint: disable=protected-access
         assert comments[1]._cache is None  # pylint: disable=protected-access
+        # check doctext proxying
+        assert p0.__doc__ == 'Example dataclass to represent a blog post.'
+        assert Post.comments.__doc__ == ("[awaitable property] "
+                                         "Blog post's comments.")

@@ -125,6 +125,15 @@ def dataclass(cls=None, /, *, identity='id'):  # noqa: no-mccabe
         DataClass.__name__ = cls.__name__ + '.DataClass'
         DataClass.__qualname__ = cls.__qualname__ + '.DataClass'
         DataClass.__module__ = cls.__module__
+        DataClass.__doc__ = cls.__doc__
+
+        for attrname in dir(cls):
+            if not attrname.startswith('_'):
+                attr = getattr(cls, attrname)
+                if isinstance(attr, property):
+                    getattr(DataClass, attrname).__doc__ = (
+                        f'[awaitable property] {attr.__doc__}'
+                    )
 
         return DataClass
 

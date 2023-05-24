@@ -18,7 +18,8 @@ optional-dependencies.test = [
     "pytest", "coverage", "pytest-cov", "mypy", "pytest-mypy",
     "pylama", "pyflakes", "pycodestyle", "pydocstyle", "mccabe",
     "pylint", "eradicate",
-    "pylint-asyncio", "aiohttp", "aioresponses",
+    "pytest-asyncio",
+    "aiohttp", "aioresponses",
 ]
 
 [tool.pytest.ini_options]

@@ -12,6 +12,12 @@ import inspect
 import functools
 
 
+def awaitable_property(coro):
+    """Mark an async def method as an awaitable property and enable caching."""
+    assert inspect.iscoroutinefunction(coro)
+    return property(coro)
+
+
 class _CacheHolder:
     """
     Small mutable container to store cache associated with dataclass instance.

@@ -29,7 +29,7 @@ class Post:
                 assert j['id'] == id_
                 return cls(id_, j['text'])
 
-    @property
+    @asynccachedview.awaitable_property
     async def comments(self):
         """Blog post's comments."""
         url = 'http://ex.ample/comments'
@@ -55,7 +55,7 @@ class Comment:
             assert j['id'] == id_
             return cls(id_, j['post_id'], j['text'])
 
-    @property
+    @asynccachedview.awaitable_property
     async def post(self):
         """Parent post."""
         return await Post.__obtain__(self.post_id)

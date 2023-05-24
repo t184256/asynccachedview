@@ -9,6 +9,6 @@ Make asynchronous requests, online and offline
 
 from asynccachedview import sources
 from asynccachedview.cache import Cache
-from asynccachedview.core import dataclass
+from asynccachedview.core import awaitable_property, dataclass
 
-__all__ = ['Cache', 'dataclass', 'sources']
+__all__ = ['Cache', 'awaitable_property', 'dataclass', 'sources']

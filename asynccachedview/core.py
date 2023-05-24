@@ -12,10 +12,37 @@ import inspect
 import functools
 
 
-def awaitable_property(coro):
-    """Mark an async def method as an awaitable property and enable caching."""
-    assert inspect.iscoroutinefunction(coro)
-    return property(coro)
+def awaitable_property(corofunc):
+    """
+    Mark an `async def` method as an awaitable property and enable caching.
+
+    The decorated coroutine method must take `self` as the only argument:
+    `async def somename(self):`.
+    Specifying setters and deleters is not supported.
+    """
+    assert inspect.iscoroutinefunction(corofunc)
+    attrname = corofunc.__name__
+
+    @functools.wraps(corofunc)
+    async def wrapping_coroutine(self):
+        cache = object.__getattribute__(self, '_cache')
+        assert isinstance(self, ACVDataclass)
+        if cache is not None:
+            try:
+                return cache.cached_attribute(self, attrname)
+            except KeyError:
+                pass
+        print(f'awaiting {corofunc=}')
+        results = await corofunc(self)
+        print(f'awaited {corofunc=}')
+        if cache is not None:
+            results = cache.associate_attribute(self, attrname, results)
+        return results
+    wrapping_coroutine.__name__ = corofunc.__name__ + '.caching_wrapper'
+    wrapping_coroutine.__qualname__ = (corofunc.__qualname__ +
+                                       '.caching_wrapper')
+    prop = property(wrapping_coroutine)
+    return prop
 
 
 class _CacheHolder:
@@ -89,45 +116,6 @@ def dataclass(cls=None, /, *, identity='id'):  # noqa: no-mccabe
                 if self._cache_holder.cache is None:
                     self._cache_holder.cache = cache
 
-            def _wrap_awaitable_property(self, awaitable, attrname):
-                @functools.wraps(awaitable)
-                async def wrapping_coroutine():
-                    cache = object.__getattribute__(self, '_cache')
-                    if cache is not None:
-                        try:
-                            print('TRY')
-                            cached = cache.cached_attribute(self, attrname)
-                            awaitable.close()
-                            return cached
-                        except KeyError:
-                            pass
-                        print('MISS')
-                    print(f'awaiting {awaitable=}')
-                    results = await awaitable
-                    print(f'awaited {awaitable=}')
-                    if cache is not None:
-                        results = cache.associate_attribute(self,
-                                                            attrname, results)
-                    return results
-                wrapping_coroutine.__name__ = (awaitable.__name__ +
-                                               '.caching_wrapper')
-                wrapping_coroutine.__qualname__ = (awaitable.__qualname__ +
-                                                   '.caching_wrapper')
-                return wrapping_coroutine()
-
-            # And wraps the other objects produced from this one:
-            def __getattribute__(self, attrname):
-                attr = object.__getattribute__(self, attrname)
-                if attrname.startswith('_'):
-                    return attr
-                if isinstance(attr, ACVDataclass):
-                    # An object's field is another object.
-                    cache = object.__getattribute__(self, '_cache')
-                    return cache.associate(self, attr)
-                if inspect.iscoroutine(attr):
-                    print(f'wrapping coroutine {attr}, self={self}')
-                    return self._wrap_awaitable_property(attr, attrname)
-                return attr
         DataClass.__name__ = cls.__name__ + '.DataClass'
         DataClass.__qualname__ = cls.__qualname__ + '.DataClass'
         DataClass.__module__ = cls.__module__

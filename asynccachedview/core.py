@@ -41,6 +41,7 @@ def awaitable_property(corofunc):
     wrapping_coroutine.__name__ = corofunc.__name__ + '.caching_wrapper'
     wrapping_coroutine.__qualname__ = (corofunc.__qualname__ +
                                        '.caching_wrapper')
+    wrapping_coroutine.__doc__ = f'[awaitable property] {corofunc.__doc__}'
     prop = property(wrapping_coroutine)
     return prop
 
@@ -113,21 +114,14 @@ def dataclass(cls=None, /, *, identity='id'):  # noqa: no-mccabe
                 return self._cache_holder.cache
 
             def _set_cache(self, cache):  # HACKY
-                if self._cache_holder.cache is None:
-                    self._cache_holder.cache = cache
+                # identity map should protect us from associating twice
+                assert self._cache_holder.cache is None
+                self._cache_holder.cache = cache
 
         DataClass.__name__ = cls.__name__ + '.DataClass'
         DataClass.__qualname__ = cls.__qualname__ + '.DataClass'
         DataClass.__module__ = cls.__module__
         DataClass.__doc__ = cls.__doc__
-
-        for attrname in dir(cls):
-            if not attrname.startswith('_'):
-                attr = getattr(cls, attrname)
-                if isinstance(attr, property):
-                    getattr(DataClass, attrname).__doc__ = (
-                        f'[awaitable property] {attr.__doc__}'
-                    )
 
         return DataClass
 

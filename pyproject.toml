@@ -23,9 +23,9 @@ optional-dependencies.test = [
 ]
 
 [tool.pytest.ini_options]
-# TODO: reenable mypy and coverade
+# TODO: reenable mypy
 #addopts = "--mypy --pylama --cov --cov-report term-missing --doctest-modules"
-addopts = "--pylama --doctest-modules"
+addopts = "--pylama --cov --cov-branch --cov-report term-missing --doctest-modules"
 
 [tool.pylama]
 linters = "pylint,pyflakes,pycodestyle,pydocstyle,mccabe,eradicate"
@@ -46,6 +46,9 @@ strict = true
 min-public-methods = 0
 variable-naming-style = "any"  # relax C0103 invalid-name, rejecting `p0`
 argument-naming-style = "any"  # relax C0102 invalid-name, rejecting `x`
+
+[tool.pylint."MISCELLANEOUS"]
+notes = "FIXME,XXX"  # no TODO
 
 [tool.pylint."MESSAGES CONTROL"]
 disable = [

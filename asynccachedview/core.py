@@ -63,7 +63,7 @@ class _CacheHolder:
 class ACVDataclass:
     """Purely an indicator that the class has been augmented."""
 
-    __slots__ = []
+    __slots__ = ()
 
 
 def dataclass(cls=None, /, *, identity='id'):  # noqa: no-mccabe
@@ -107,7 +107,9 @@ def dataclass(cls=None, /, *, identity='id'):  # noqa: no-mccabe
             # Optionally remembers the cache associated with the object
             # HACKY, mutable container in frozen dataclass
             _cache_holder: _CacheHolder = \
-                dataclasses.field(default_factory=_CacheHolder)
+                dataclasses.field(default_factory=_CacheHolder,
+                                  init=False, repr=False,
+                                  hash=False, compare=False, kw_only=True)
 
             @property
             def _cache(self):  # HACKY

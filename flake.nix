@@ -15,6 +15,7 @@
         eradicate
         pytest-asyncio
         aiohttp aioresponses
+        aiosqlite
       ]);
 
       pylama-package = {python3Packages, fetchpatch}:

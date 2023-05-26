@@ -9,7 +9,6 @@ Data model wrapper.
 
 import dataclasses
 import inspect
-import functools
 
 
 def awaitable_property(corofunc):
@@ -20,30 +19,47 @@ def awaitable_property(corofunc):
     `async def somename(self):`.
     Specifying setters and deleters is not supported.
     """
-    assert inspect.iscoroutinefunction(corofunc)
-    attrname = corofunc.__name__
+    return _AwaitableProperty(corofunc)
 
-    @functools.wraps(corofunc)
-    async def wrapping_coroutine(self):
-        cache = object.__getattribute__(self, '_cache')
-        assert isinstance(self, ACVDataclass)
-        if cache is not None:
-            try:
-                return cache.cached_attribute(self, attrname)
-            except KeyError:
-                pass
-        print(f'awaiting {corofunc=}')
-        results = await corofunc(self)
-        print(f'awaited {corofunc=}')
-        if cache is not None:
-            results = cache.associate_attribute(self, attrname, results)
-        return results
-    wrapping_coroutine.__name__ = corofunc.__name__ + '.caching_wrapper'
-    wrapping_coroutine.__qualname__ = (corofunc.__qualname__ +
-                                       '.caching_wrapper')
-    wrapping_coroutine.__doc__ = f'[awaitable property] {corofunc.__doc__}'
-    prop = property(wrapping_coroutine)
-    return prop
+
+class _AwaitableProperty:
+    __slots__ = ('__doc__', 'attrname', 'dataclass', 'wrapped', 'wrapper')
+
+    def __init__(self, corofunc):
+        self.dataclass = self.attrname = None  # get bound in __set_name__
+        self.wrapped = corofunc
+        assert inspect.iscoroutinefunction(corofunc)
+        self.__doc__ = f'[awaitable property] {corofunc.__doc__}'
+
+        async def wrapper(obj):
+            assert isinstance(obj, ACVDataclass)
+            cache = object.__getattribute__(obj, '_cache')
+            if cache is not None:
+                try:
+                    return cache.cached_attribute(obj, self.attrname)
+                except KeyError:
+                    pass
+            print(f'awaiting {self.wrapped=}')
+            results = await self.wrapped(obj)
+            print(f'awaited {self.wrapped=}')
+            if cache is not None:
+                results = cache.associate_attribute(obj,
+                                                    self.attrname, results)
+            return results
+        self.wrapper = wrapper
+
+    def __set_name__(self, owner, name):  # on attaching to class
+        self.dataclass = owner
+        self.attrname = name
+
+    def __get__(self, obj, objtype=None):  # on getattr'ing the field
+        if obj is None:
+            return self
+        wrapper = self.wrapper.__get__(obj, obj.__class__)  # bind to object
+        wrapper = wrapper()
+        wrapper.__name__ = self.wrapped.__name__ + '.caching_wrapper'
+        wrapper.__qualname__ = self.wrapped.__qualname__ + '.caching_wrapper'
+        return wrapper
 
 
 class _CacheHolder:

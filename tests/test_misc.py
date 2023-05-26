@@ -5,6 +5,7 @@
 
 import pytest
 
+import asynccachedview.cache
 import asynccachedview.dataclasses
 
 
@@ -32,7 +33,7 @@ class ED:
 @pytest.mark.asyncio
 async def test_list_using_cache() -> None:
     """Test our dataclasses operation with a cache."""
-    async with asynccachedview.dataclasses.Cache() as acv:
+    async with asynccachedview.cache.Cache() as acv:
         ed = await acv.obtain(ED, 0)
         assert await ed.self_tuple == (ed, ed)
         with pytest.raises(RuntimeError):
@@ -53,7 +54,7 @@ async def test_late_association() -> None:
     ed0 = await ED.__obtain__(0)
     assert ed0._cache is None  # pylint: disable=protected-access
 
-    async with asynccachedview.dataclasses.Cache() as acv:
+    async with asynccachedview.cache.Cache() as acv:
         ed1 = await acv.obtain(ED, 1)
         assert ed0._cache is None  # pylint: disable=protected-access
         assert ed1._cache is acv  # pylint: disable=protected-access

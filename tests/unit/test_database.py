@@ -6,7 +6,7 @@
 import pytest
 
 import asynccachedview.dataclasses
-import asynccachedview.dataclasses.database
+import asynccachedview.cache.database
 
 
 @asynccachedview.dataclasses.dataclass
@@ -47,7 +47,7 @@ class Child:
 @pytest.mark.asyncio
 async def test_database() -> None:
     """Test database."""
-    async with asynccachedview.dataclasses.database.Database() as db:
+    async with asynccachedview.cache.database.Database() as db:
         p0 = await Parent.__obtain__(0)
         await db.store(p0)
 

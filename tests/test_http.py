@@ -8,6 +8,7 @@ import aioresponses
 
 import pytest
 
+import asynccachedview.cache
 import asynccachedview.dataclasses
 
 
@@ -82,7 +83,7 @@ def setup_mocked_data(mocked):
 @pytest.mark.asyncio
 async def test_using_cache() -> None:
     """Test our dataclasses operation with a cache."""
-    async with asynccachedview.dataclasses.Cache() as acv:
+    async with asynccachedview.cache.Cache() as acv:
         with aioresponses.aioresponses() as mocked:
             setup_mocked_data(mocked)
             # basic querying

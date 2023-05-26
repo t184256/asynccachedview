@@ -5,13 +5,13 @@
 
 import pytest
 
-import asynccachedview
+import asynccachedview.dataclasses
 
 
 def test_bad_dataclass_identity():
     """Test dataclass specifying non-existing fields for identity."""
     with pytest.raises(AssertionError):
-        @asynccachedview.dataclass(identity=('id', 'nonex'))
+        @asynccachedview.dataclasses.dataclass(identity=('id', 'nonex'))
         class _:
             """Example dataclass."""
 

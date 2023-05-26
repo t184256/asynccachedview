@@ -5,11 +5,11 @@
 
 import pytest
 
-import asynccachedview
-import asynccachedview.database
+import asynccachedview.dataclasses
+import asynccachedview.dataclasses.database
 
 
-@asynccachedview.dataclass
+@asynccachedview.dataclasses.dataclass
 class Parent:
     """Example dataclass to represent a parent object."""
 
@@ -19,14 +19,14 @@ class Parent:
     async def __obtain__(cls, id_):
         return cls(id_)
 
-    @asynccachedview.awaitable_property
+    @asynccachedview.dataclasses.awaitable_property
     async def children(self):
         """Children objects."""
         return (Child(id=0, parent_id=self.id, text='c0'),
                 Child(id=1, parent_id=self.id, text='c1'))
 
 
-@asynccachedview.dataclass
+@asynccachedview.dataclasses.dataclass
 class Child:
     """Example dataclass to represent a child object."""
 
@@ -38,7 +38,7 @@ class Child:
     async def __obtain__(cls, id_):
         return cls(id=id_, parent_id=0, text=f'c{id_}')
 
-    @asynccachedview.awaitable_property
+    @asynccachedview.dataclasses.awaitable_property
     async def parent(self):
         """Parent object."""
         return await Parent.__obtain__(self.parent_id)
@@ -47,7 +47,7 @@ class Child:
 @pytest.mark.asyncio
 async def test_database() -> None:
     """Test database."""
-    async with asynccachedview.database.Database() as db:
+    async with asynccachedview.dataclasses.database.Database() as db:
         p0 = await Parent.__obtain__(0)
         await db.store(p0)
 

@@ -4,11 +4,10 @@
 """
 asynccachedview.
 
-Make asynchronous requests, online and offline
+Make asynchronous requests, online and offline.
 """
 
 from asynccachedview import sources
-from asynccachedview.cache import Cache
-from asynccachedview.core import awaitable_property, dataclass
+from asynccachedview import dataclasses
 
-__all__ = ['Cache', 'awaitable_property', 'dataclass', 'sources']
+__all__ = ['dataclasses', 'sources']

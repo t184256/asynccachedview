@@ -7,7 +7,7 @@ import types
 import typing
 import collections
 
-import asynccachedview.core
+import asynccachedview.dataclasses._core
 
 
 class Cache:
@@ -73,7 +73,8 @@ class Cache:
         Can return another object with same identity
         if that object was associated with the cache beforehand.
         """
-        assert isinstance(obj, asynccachedview.core.ACVDataclass)
+        # pylint: disable-next=protected-access
+        assert isinstance(obj, asynccachedview.dataclasses._core.ACVDataclass)
         _cls = obj.__class__
         _id = obj._identity  # pylint: disable=protected-access
         try:

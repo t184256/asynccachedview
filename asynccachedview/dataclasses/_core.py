@@ -60,6 +60,23 @@ class _CacheHolder:
         self.cache = None
 
 
+async def obtain_related(dataclass_instance, desired_dataclass, *identity):
+    """Obtain an object + associate it with cache of existing instance."""
+    # pylint: disable-next=protected-access
+    cache = dataclass_instance._cache_holder.cache
+    if cache is not None:
+        return await cache.obtain(desired_dataclass, *identity)
+    return await desired_dataclass.__obtain__(*identity)
+
+
+async def associate_related(dataclass_instance, x):
+    """Associate dataclass instance(s) with cache of existing instance."""
+    # pylint: disable-next=protected-access
+    cache = dataclass_instance._cache_holder.cache
+    if cache is not None:
+        return cache.associate(x)
+
+
 class ACVDataclass:
     """Purely an indicator that the class has been augmented."""
 
@@ -132,4 +149,5 @@ def dataclass(cls=None, /, *, identity='id'):  # noqa: no-mccabe
     return augment(cls)  # called without arguments
 
 
-__all__ = ['dataclass']
+__all__ = ['dataclass', 'awaitable_property',
+           'obtain_related', 'associate_related']

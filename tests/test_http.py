@@ -8,10 +8,10 @@ import aioresponses
 
 import pytest
 
-import asynccachedview
+import asynccachedview.dataclasses
 
 
-@asynccachedview.dataclass
+@asynccachedview.dataclasses.dataclass
 class Post:
     """Example dataclass to represent a blog post."""
 
@@ -29,7 +29,7 @@ class Post:
                 assert j['id'] == id_
                 return cls(id_, j['text'])
 
-    @asynccachedview.awaitable_property
+    @asynccachedview.dataclasses.awaitable_property
     async def comments(self):
         """Blog post's comments."""
         url = 'http://ex.ample/comments'
@@ -40,7 +40,7 @@ class Post:
                          for c in j)
 
 
-@asynccachedview.dataclass(identity=('id',))  # this is the default
+@asynccachedview.dataclasses.dataclass(identity=('id',))  # this is the default
 class Comment:
     """Example dataclass to represent a blog post's comment."""
 
@@ -55,10 +55,11 @@ class Comment:
             assert j['id'] == id_
             return cls(id_, j['post_id'], j['text'])
 
-    @asynccachedview.awaitable_property
+    @asynccachedview.dataclasses.awaitable_property
     async def post(self):
         """Parent post."""
-        return await Post.__obtain__(self.post_id)
+        obtain_related = asynccachedview.dataclasses.obtain_related
+        return await obtain_related(self, Post, self.post_id)
 
 
 def setup_mocked_data(mocked):
@@ -81,7 +82,7 @@ def setup_mocked_data(mocked):
 @pytest.mark.asyncio
 async def test_using_cache() -> None:
     """Test our dataclasses operation with a cache."""
-    async with asynccachedview.Cache() as acv:
+    async with asynccachedview.dataclasses.Cache() as acv:
         with aioresponses.aioresponses() as mocked:
             setup_mocked_data(mocked)
             # basic querying

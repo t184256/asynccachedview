@@ -57,6 +57,7 @@ async def test_database() -> None:
         c0 = await Child.__obtain__(0)
         c1 = await Child.__obtain__(1)
         await db.store(c0)  # table doesn't exist yet
+        await db.store(c0)  # table exists now, upsert
         await db.store(c1)  # table exists now
 
         c0_retrieved = await db.retrieve(Child, 0)

@@ -23,6 +23,7 @@ class Database:
         self._db_path = path or ':memory:'
         self._db = None
         self._selectors_cache = {}
+        self._upsertors_cache = {}
 
     async def __aenter__(self) -> typing.Self:
         self._db = await aiosqlite.connect(self._db_path)
@@ -46,8 +47,8 @@ class Database:
         return dataclass.__qualname__.replace('.', '_')  # ugly
 
     async def _create_table(self, dataclass):
-        all_fields = tuple(f.name for f in dataclasses.fields(dataclass)
-                           if f.name != '_cache_holder')
+        # pylint: disable-next=protected-access
+        all_fields = dataclass._all_field_names
         # pylint: disable-next=protected-access
         identity_fields = dataclass._identity_field_names
         tablename = self._tablename(dataclass)
@@ -69,26 +70,41 @@ class Database:
         self._selectors_cache[dataclass] = selector
         return selector
 
-    async def _upsert(self, tablename, obj):
+    def _upsertor(self, dataclass):
+        try:
+            return self._upsertors_cache[dataclass]
+        except KeyError:
+            pass
+        # pylint: disable-next=protected-access
+        all_fields = dataclass._all_field_names
+        # pylint: disable-next=protected-access
+        identity_fields = dataclass._identity_field_names
+        tablename = self._tablename(dataclass)
+        stmt = (f'INSERT INTO {tablename} '
+                f'VALUES ({", ".join("?" * len(all_fields))}) '
+                f'ON CONFLICT ({", ".join(identity_fields)}) '
+                f'DO UPDATE SET {", ".join(f"{f}=?" for f in all_fields)}')
+        self._upsertors_cache[dataclass] = stmt
+        return stmt
+
+    async def _upsert(self, obj):
         values = tuple(self._dataclass_to_dict(obj).values())
         async with self._db.cursor() as cur:
-            await cur.execute(f'INSERT INTO {tablename} '
-                              f'VALUES ({", ".join("?" * len(values))})',
-                              list(values))
+            await cur.execute(self._upsertor(obj.__class__), values + values)
         print('INSERTED', values)
 
-    async def store(self, obj):  # pragma: no cover
+    async def store(self, obj):
         """Persist an object into a database."""
-        tablename = self._tablename(obj.__class__)
         try:
-            await self._upsert(tablename, obj)
-        except sqlite3.OperationalError as ex:  # pragma: no cover
-            if ex.args[0] == f'no such table: {tablename}':  # pragma: no cover
+            await self._upsert(obj)
+        except sqlite3.OperationalError as ex:
+            tablename = self._tablename(obj.__class__)
+            if ex.args[0] == f'no such table: {tablename}':
                 # retry (TODO: more efficiently)
                 await self._create_table(obj.__class__)
-                await self._upsert(tablename, obj)
-            else:  # pragma: no cover
-                raise  # pragma: no cover
+                await self._upsert(obj)
+            else:
+                raise  # pragma: no cover (just in case)
 
     async def retrieve(self, dataclass, *identity):
         """Retrieve an object from a database by identity field values."""

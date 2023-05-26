@@ -122,8 +122,10 @@ def dataclass(cls=None, /, *, identity='id'):  # noqa: no-mccabe
         # Main function that upgrades the dataclass with caching
         dcls = dataclasses.dataclass(cls, frozen=True)
         fields = dataclasses.fields(dcls)
+        all_field_names = tuple(f.name
+                                for f in fields if f.name != '_cache_holder')
         for fname in identity_field_names:
-            assert any(field.name == fname for field in fields)
+            assert all(fname in all_field_names for field in fields)
 
         # This is the wrapper class that offers extra functionality
         @dataclasses.dataclass(frozen=True)
@@ -131,6 +133,7 @@ def dataclass(cls=None, /, *, identity='id'):  # noqa: no-mccabe
         class DataClass(dcls, ACVDataclass):
             # Knows which fields are the identity (primary key)
             _identity_field_names = identity_field_names
+            _all_field_names = all_field_names
 
             @property
             def _identity(self):

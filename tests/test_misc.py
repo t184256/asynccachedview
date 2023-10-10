@@ -3,6 +3,8 @@
 
 """Test assorted corner-cases."""
 
+import dataclasses
+
 import pytest
 
 import asynccachedview.cache
@@ -13,7 +15,9 @@ import asynccachedview.dataclasses
 class ED:
     """Example dataclass."""
 
-    id: int  # noqa: A003
+    id: int = dataclasses.field(  # noqa: A003
+        metadata=asynccachedview.dataclasses.primary_key(),
+    )
 
     @classmethod
     async def __obtain__(cls, id_):  # noqa: PLW3201

@@ -7,6 +7,8 @@ import collections
 import types
 import typing
 
+import aiosqlitemydataclass
+
 import asynccachedview.dataclasses._core
 
 
@@ -75,7 +77,7 @@ class Cache:
         _core = asynccachedview.dataclasses._core  # noqa: SLF001
         assert isinstance(obj, _core.ACVDataclass)
         _cls = obj.__class__
-        _id = obj._identity  # noqa: SLF001
+        _id = aiosqlitemydataclass.identity(obj)
         try:
             return self.id_map[_cls][_id]
         except KeyError:
@@ -100,7 +102,7 @@ class Cache:
     def associate_attribute(self, obj, attrname, attrval):
         """Cache and associate `obj.attrname` awaitable property results.
 
-        Used for caching results of dataclasess' awaitable properties.
+        Used for caching results of dataclasses' awaitable properties.
         """
         try:
             return self.field_map[obj.__class__][obj.id][attrname]

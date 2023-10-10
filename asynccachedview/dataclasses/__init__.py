@@ -8,6 +8,7 @@ from asynccachedview.dataclasses._core import (
     awaitable_property,
     dataclass,
     obtain_related,
+    primary_key,
 )
 
 __all__ = [
@@ -15,4 +16,5 @@ __all__ = [
     'awaitable_property',
     'dataclass',
     'obtain_related',
+    'primary_key',
 ]

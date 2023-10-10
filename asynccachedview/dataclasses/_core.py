@@ -9,6 +9,8 @@ Data model wrapper.
 import dataclasses
 import inspect
 
+from aiosqlitemydataclass import primary_key
+
 
 def awaitable_property(corofunc):
     """Mark an `async def` method as an awaitable property and enable caching.
@@ -97,78 +99,53 @@ class ACVDataclass:
     __slots__ = ()
 
 
-def dataclass(cls=None, /, *, identity='id'):  # noqa: no-mccabe
+def dataclass(cls):
     """Define a dataclass based on a python class.
 
-    `identity` is an attribute name or a tuple of them
-    that define the "primary key" of the dataclass.
+    Fields collectively acting as a primary key must be decorated as
+    `id: int = dataclasses.field(metadata=primary_key())` or
+    `id: int = dataclasses.field(metadata=primary_key({'more': 'metadata'}))`
+
     Instances of the dataclass with the same values for these keys
-    are considered the same instance. Defaults to `'id'`.
+    are considered the same instance.
 
     Has a similar interface to `@dataclasses.dataclass(frozen=True)`,
     but also supports attaching objects to caches.
 
-    A dataclass `D` must define `async def __obtain__(*identity)`
+    A dataclass `D` must also define `async def __obtain__(*identity)`
     that acts as a constructor when you later do `cache.obtain(D, *identity)`.
     """
-    if isinstance(identity, str):
-        identity = (identity,)
-    identity_field_names = identity
+    # This is a regular frozen dataclass
+    dcls = dataclasses.dataclass(cls, frozen=True)
 
-    def augment(cls):
-        # Main function that upgrades the dataclass with caching
-        dcls = dataclasses.dataclass(cls, frozen=True)
-        fields = dataclasses.fields(dcls)
-        all_field_names = tuple(
-            f.name for f in fields if f.name != '_cache_holder'
+    # This is the wrapper class that offers extra functionality
+    @dataclasses.dataclass(frozen=True)
+    class DataClass(dcls, ACVDataclass):
+        # Optionally remembers the cache associated with the object
+        # HACKY, mutable container in frozen dataclass
+        _cache_holder: _CacheHolder = dataclasses.field(
+            default_factory=_CacheHolder,
+            init=False,
+            repr=False,
+            hash=False,
+            compare=False,
         )
-        for fname in identity_field_names:
-            assert all(fname in all_field_names for field in fields)
 
-        # This is the wrapper class that offers extra functionality
-        @dataclasses.dataclass(frozen=True)
-        class DataClass(dcls, ACVDataclass):
-            # Knows which fields are the identity (primary key)
-            _identity_field_names = identity_field_names
-            _all_field_names = all_field_names
+        @property
+        def _cache(self):  # HACKY
+            return self._cache_holder.cache
 
-            @property
-            def _identity(self):
-                return tuple(
-                    getattr(self, fname)
-                    for fname in self._identity_field_names
-                )
+        def _set_cache(self, cache):  # HACKY
+            # identity map should protect us from associating twice
+            assert self._cache_holder.cache is None
+            self._cache_holder.cache = cache
 
-            # Optionally remembers the cache associated with the object
-            # HACKY, mutable container in frozen dataclass
-            _cache_holder: _CacheHolder = dataclasses.field(
-                default_factory=_CacheHolder,
-                init=False,
-                repr=False,
-                hash=False,
-                compare=False,
-                kw_only=True,
-            )
+    DataClass.__name__ = cls.__name__ + '.ACVDataclass'
+    DataClass.__qualname__ = cls.__qualname__ + '.ACVDataclass'
+    DataClass.__module__ = cls.__module__
+    DataClass.__doc__ = cls.__doc__
 
-            @property
-            def _cache(self):  # HACKY
-                return self._cache_holder.cache
-
-            def _set_cache(self, cache):  # HACKY
-                # identity map should protect us from associating twice
-                assert self._cache_holder.cache is None
-                self._cache_holder.cache = cache
-
-        DataClass.__name__ = cls.__name__ + '.DataClass'
-        DataClass.__qualname__ = cls.__qualname__ + '.DataClass'
-        DataClass.__module__ = cls.__module__
-        DataClass.__doc__ = cls.__doc__
-
-        return DataClass
-
-    if cls is None:
-        return augment  # called with arguments
-    return augment(cls)  # called without arguments
+    return DataClass
 
 
 __all__ = [
@@ -176,4 +153,5 @@ __all__ = [
     'awaitable_property',
     'obtain_related',
     'associate_related',
+    'primary_key',
 ]

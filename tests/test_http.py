@@ -3,6 +3,7 @@
 
 """Test accessing an HTTP resource."""
 
+import dataclasses
 import http
 
 import aiohttp
@@ -17,7 +18,10 @@ import asynccachedview.dataclasses
 class Post:
     """Example dataclass to represent a blog post."""
 
-    id: int  # noqa: A003
+    id: int = dataclasses.field(  # noqa: A003
+        metadata=asynccachedview.dataclasses.primary_key(),
+    )
+
     text: str
 
     @classmethod
@@ -46,11 +50,13 @@ class Post:
             )
 
 
-@asynccachedview.dataclasses.dataclass(identity=('id',))  # this is the default
+@asynccachedview.dataclasses.dataclass
 class Comment:
     """Example dataclass to represent a blog post's comment."""
 
-    id: int  # noqa: A003
+    id: int = dataclasses.field(  # noqa: A003
+        metadata=asynccachedview.dataclasses.primary_key(),
+    )
     post_id: int
     text: str
 

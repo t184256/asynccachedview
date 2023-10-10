@@ -1,5 +1,28 @@
 {
   "nodes": {
+    "aiosqlitemydataclass-flake": {
+      "inputs": {
+        "flake-utils": [
+          "flake-utils"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1696956277,
+        "narHash": "sha256-oNtbVWbm1elNBfjySf7UkkTBKy9Q/ur555IZcnZD+sY=",
+        "owner": "t184256",
+        "repo": "aiosqlitemydataclass",
+        "rev": "8788f856e84e8b4b25d5c16230a09829ee397a0b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "t184256",
+        "repo": "aiosqlitemydataclass",
+        "type": "github"
+      }
+    },
     "flake-utils": {
       "inputs": {
         "systems": "systems"
@@ -33,6 +56,7 @@
     },
     "root": {
       "inputs": {
+        "aiosqlitemydataclass-flake": "aiosqlitemydataclass-flake",
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs"
       }

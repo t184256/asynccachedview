@@ -1,10 +1,17 @@
 {
   description = "Make asynchronous requests, online and offline";
 
-  outputs = { self, nixpkgs, flake-utils }:
+  inputs.aiosqlitemydataclass-flake = {
+    url = "github:t184256/aiosqlitemydataclass";
+    inputs.nixpkgs.follows = "nixpkgs";
+    inputs.flake-utils.follows = "flake-utils";
+  };
+
+  outputs = { self, nixpkgs, flake-utils, aiosqlitemydataclass-flake }:
     let
       deps = pyPackages: with pyPackages; [
         aiosqlite aiohttp
+        aiosqlitemydataclass
       ];
       tools = pkgs: pyPackages: (with pyPackages; [
         pytest pytestCheckHook
@@ -25,7 +32,7 @@
           checkInputs = tools pkgs python3Packages;
         };
 
-      overlay = final: prev: {
+      asynccachedview-overlay = final: prev: {
         pythonPackagesExtensions =
           prev.pythonPackagesExtensions ++ [(pyFinal: pyPrev: {
             asynccachedview = final.callPackage asynccachedview-package {
@@ -33,6 +40,10 @@
             };
           })];
       };
+      overlay = nixpkgs.lib.composeManyExtensions [
+        aiosqlitemydataclass-flake.overlays.default
+        asynccachedview-overlay
+      ];
     in
       flake-utils.lib.eachDefaultSystem (system:
         let
@@ -54,5 +65,8 @@
           packages.asynccachedview = asynccachedview;
           packages.default = asynccachedview;
         }
-    ) // { overlays.default = overlay; };
+      ) // {
+        overlays.default = overlay;
+        overlays.asynccachedview = asynccachedview-overlay;
+      };
 }

@@ -1,8 +1,7 @@
 # SPDX-FileCopyrightText: 2023 Alexander Sosedkin <monk@unboiled.info>
 # SPDX-License-Identifier: GPL-3.0
 
-"""
-asynccachedview core.
+"""asynccachedview core.
 
 Data model wrapper.
 """
@@ -12,8 +11,7 @@ import inspect
 
 
 def awaitable_property(corofunc):
-    """
-    Mark an `async def` method as an awaitable property and enable caching.
+    """Mark an `async def` method as an awaitable property and enable caching.
 
     The decorated coroutine method must take `self` as the only argument:
     `async def somename(self):`.
@@ -39,13 +37,15 @@ class _AwaitableProperty:
                     return cache.cached_attribute(obj, self.attrname)
                 except KeyError:
                     pass
-            print(f'awaiting {self.wrapped=}')
             results = await self.wrapped(obj)
-            print(f'awaited {self.wrapped=}')
             if cache is not None:
-                results = cache.associate_attribute(obj,
-                                                    self.attrname, results)
+                results = cache.associate_attribute(
+                    obj,
+                    self.attrname,
+                    results,
+                )
             return results
+
         self.wrapper = wrapper
 
     def __set_name__(self, owner, name):  # on attaching to class
@@ -63,8 +63,7 @@ class _AwaitableProperty:
 
 
 class _CacheHolder:
-    """
-    Small mutable container to store cache associated with dataclass instance.
+    """Mutable container to store cache association for dataclass instance.
 
     This is needed to have frozen dataclass instances associated with a cache
     after their construction. It is attached to `_cache_holder` private field.
@@ -78,8 +77,7 @@ class _CacheHolder:
 
 async def obtain_related(dataclass_instance, desired_dataclass, *identity):
     """Obtain an object + associate it with cache of existing instance."""
-    # pylint: disable-next=protected-access
-    cache = dataclass_instance._cache_holder.cache
+    cache = dataclass_instance._cache_holder.cache  # noqa: SLF001
     if cache is not None:
         return await cache.obtain(desired_dataclass, *identity)
     return await desired_dataclass.__obtain__(*identity)
@@ -87,10 +85,10 @@ async def obtain_related(dataclass_instance, desired_dataclass, *identity):
 
 async def associate_related(dataclass_instance, x):
     """Associate dataclass instance(s) with cache of existing instance."""
-    # pylint: disable-next=protected-access
-    cache = dataclass_instance._cache_holder.cache
+    cache = dataclass_instance._cache_holder.cache  # noqa: SLF001
     if cache is not None:
         return cache.associate(x)
+    return None
 
 
 class ACVDataclass:
@@ -100,8 +98,7 @@ class ACVDataclass:
 
 
 def dataclass(cls=None, /, *, identity='id'):  # noqa: no-mccabe
-    """
-    Define a dataclass based on a python class.
+    """Define a dataclass based on a python class.
 
     `identity` is an attribute name or a tuple of them
     that define the "primary key" of the dataclass.
@@ -122,14 +119,14 @@ def dataclass(cls=None, /, *, identity='id'):  # noqa: no-mccabe
         # Main function that upgrades the dataclass with caching
         dcls = dataclasses.dataclass(cls, frozen=True)
         fields = dataclasses.fields(dcls)
-        all_field_names = tuple(f.name
-                                for f in fields if f.name != '_cache_holder')
+        all_field_names = tuple(
+            f.name for f in fields if f.name != '_cache_holder'
+        )
         for fname in identity_field_names:
             assert all(fname in all_field_names for field in fields)
 
         # This is the wrapper class that offers extra functionality
         @dataclasses.dataclass(frozen=True)
-        # pylint: disable-next=missing-class-docstring
         class DataClass(dcls, ACVDataclass):
             # Knows which fields are the identity (primary key)
             _identity_field_names = identity_field_names
@@ -137,15 +134,21 @@ def dataclass(cls=None, /, *, identity='id'):  # noqa: no-mccabe
 
             @property
             def _identity(self):
-                return tuple(getattr(self, fname)
-                             for fname in self._identity_field_names)
+                return tuple(
+                    getattr(self, fname)
+                    for fname in self._identity_field_names
+                )
 
             # Optionally remembers the cache associated with the object
             # HACKY, mutable container in frozen dataclass
-            _cache_holder: _CacheHolder = \
-                dataclasses.field(default_factory=_CacheHolder,
-                                  init=False, repr=False,
-                                  hash=False, compare=False, kw_only=True)
+            _cache_holder: _CacheHolder = dataclasses.field(
+                default_factory=_CacheHolder,
+                init=False,
+                repr=False,
+                hash=False,
+                compare=False,
+                kw_only=True,
+            )
 
             @property
             def _cache(self):  # HACKY
@@ -168,5 +171,9 @@ def dataclass(cls=None, /, *, identity='id'):  # noqa: no-mccabe
     return augment(cls)  # called without arguments
 
 
-__all__ = ['dataclass', 'awaitable_property',
-           'obtain_related', 'associate_related']
+__all__ = [
+    'dataclass',
+    'awaitable_property',
+    'obtain_related',
+    'associate_related',
+]

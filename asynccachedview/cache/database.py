@@ -15,8 +15,7 @@ class Database:
     """Database to persist dataclasses to."""
 
     def __init__(self, path=None):
-        """
-        Initialize a database. `async with` to open it.
+        """Initialize a database. `async with` to open it.
 
         `path=None` will use an in-memory database.
         """
@@ -29,11 +28,12 @@ class Database:
         self._db = await aiosqlite.connect(self._db_path)
         return self
 
-    async def __aexit__(self,
-                        exc_type: typing.Optional[type[BaseException]],
-                        exc_val: typing.Optional[BaseException],
-                        exc_tb: typing.Optional[types.TracebackType]
-                        ) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: types.TracebackType | None,
+    ) -> None:
         await self._db.close()
 
     @staticmethod
@@ -47,26 +47,29 @@ class Database:
         return dataclass.__qualname__.replace('.', '_')  # ugly
 
     async def _create_table(self, dataclass):
-        # pylint: disable-next=protected-access
-        all_fields = dataclass._all_field_names
-        # pylint: disable-next=protected-access
-        identity_fields = dataclass._identity_field_names
+        all_fields = dataclass._all_field_names  # noqa: SLF001
+        identity_fields = dataclass._identity_field_names  # noqa: SLF001
         tablename = self._tablename(dataclass)
         async with self._db.cursor() as cur:
-            await cur.execute(f'CREATE TABLE {tablename} '
-                              f'({", ".join(fn for fn in all_fields)},'
-                              f' PRIMARY KEY ('
-                              f' {", ".join(fn for fn in identity_fields)}))')
+            await cur.execute(
+                f'CREATE TABLE {tablename} '
+                f'({", ".join(fn for fn in all_fields)},'
+                f' PRIMARY KEY ('
+                f' {", ".join(fn for fn in identity_fields)}))',
+            )
 
     def _selector(self, dataclass):
         try:
             return self._selectors_cache[dataclass]
         except KeyError:
             pass
-        # pylint: disable-next=protected-access
-        fields_id = tuple(f'{fn}=?' for fn in dataclass._identity_field_names)
+        identity_field_names = dataclass._identity_field_names  # noqa: SLF001
+        fields_id = tuple(f'{fn}=?' for fn in identity_field_names)
         tablename = self._tablename(dataclass)
-        selector = f'SELECT * FROM {tablename} WHERE {" AND ".join(fields_id)}'
+        selector = (
+            f'SELECT * FROM {tablename}'  # noqa: S608
+            f' WHERE {" AND ".join(fields_id)}'
+        )
         self._selectors_cache[dataclass] = selector
         return selector
 
@@ -75,15 +78,15 @@ class Database:
             return self._upsertors_cache[dataclass]
         except KeyError:
             pass
-        # pylint: disable-next=protected-access
-        all_fields = dataclass._all_field_names
-        # pylint: disable-next=protected-access
-        identity_fields = dataclass._identity_field_names
+        all_fields = dataclass._all_field_names  # noqa: SLF001
+        identity_fields = dataclass._identity_field_names  # noqa: SLF001
         tablename = self._tablename(dataclass)
-        stmt = (f'INSERT INTO {tablename} '
-                f'VALUES ({", ".join("?" * len(all_fields))}) '
-                f'ON CONFLICT ({", ".join(identity_fields)}) '
-                f'DO UPDATE SET {", ".join(f"{f}=?" for f in all_fields)}')
+        stmt = (
+            f'INSERT INTO {tablename} '  # noqa: S608
+            f'VALUES ({", ".join("?" * len(all_fields))}) '
+            f'ON CONFLICT ({", ".join(identity_fields)}) '
+            f'DO UPDATE SET {", ".join(f"{f}=?" for f in all_fields)}'
+        )
         self._upsertors_cache[dataclass] = stmt
         return stmt
 
@@ -91,7 +94,6 @@ class Database:
         values = tuple(self._dataclass_to_dict(obj).values())
         async with self._db.cursor() as cur:
             await cur.execute(self._upsertor(obj.__class__), values + values)
-        print('INSERTED', values)
 
     async def store(self, obj):
         """Persist an object into a database."""
@@ -112,6 +114,7 @@ class Database:
             await cur.execute(self._selector(dataclass), identity)
             res = await cur.fetchone()
             return dataclass(*res)
+
 
 # TODO: multiprocess-safety
 # TODO: efficient store_multi

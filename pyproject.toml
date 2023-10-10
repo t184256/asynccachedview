@@ -13,44 +13,61 @@ classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)"
 ]
 requires-python = ">=3.11"
-dependencies = [] # TODO: list python dependencies
-optional-dependencies.test = [
-    "pytest", "coverage", "pytest-cov", "mypy", "pytest-mypy",
-    "pylama", "pyflakes", "pycodestyle", "pydocstyle", "mccabe",
-    "pylint", "eradicate",
-    "pytest-asyncio",
-    "aiohttp", "aioresponses",
+dependencies = [
     "aiosqlite",
+    "aiohttp",
+] # TODO: list python dependencies
+optional-dependencies.test = [
+    "pytest",
+    "coverage", "pytest-cov",
+    "mypy", "pytest-mypy",
+    "ruff",
+    "pytest-asyncio",
+    "aioresponses",
 ]
 
 [tool.pytest.ini_options]
 # TODO: reenable mypy
-#addopts = "--mypy --pylama --cov --cov-report term-missing --doctest-modules"
-addopts = "--pylama --cov --cov-branch --cov-report term-missing --doctest-modules"
-
-[tool.pylama]
-linters = "pylint,pyflakes,pycodestyle,pydocstyle,mccabe,eradicate"
-
-[tool.pylama.linter.pydocstyle]
-ignore = "D212,D203,D105,D413,D407"
+addopts = "--cov --cov-report term-missing --doctest-modules"
 
 [tool.coverage]
-run.source = ["asynccachedview"]
+run.source = [ "asynccachedview" ]
 run.branch = true
-report.exclude_lines = [ "# pragma: no cover", "if __name__ == .__main__.:" ]
+report.exclude_lines = [
+  "# pragma: no cover",
+  "if __name__ == .__main__.:",
+  "if typing.TYPE_CHECKING:",
+]
 report.fail_under = 100
 
 [tool.mypy]
 strict = true
 
-[tool.pylint."BASIC"]
-min-public-methods = 0
-variable-naming-style = "any"  # relax C0103 invalid-name, rejecting `p0`
-argument-naming-style = "any"  # relax C0102 invalid-name, rejecting `x`
-
-[tool.pylint."MISCELLANEOUS"]
-notes = "FIXME,XXX"  # no TODO
-
-[tool.pylint."MESSAGES CONTROL"]
-disable = [
+[tool.ruff]
+line-length = 79
+select = [ "ALL" ]
+ignore = [
+  "D105",  # undocumented-magic-method
+  "D203",  # one-blank-line-before-class
+  "D213",  # multi-line-summary-second-line
+  "S101",  # assert
+  "FIX002",  # line-contains-todo
+  "FIX004",  # line-contains-hack
+  "TD002",  # missing-todo-author
+  "TD003",  # missing-todo-link
+  # TODO: reenable mypy
+  "ANN",  # type checking
 ]
+per-file-ignores."tests/**" = [
+  "INP001",  # implicit-namespace-package
+  "S101",  # assert
+  "SLF001",  # private-member-access
+]
+flake8-quotes.inline-quotes = "single"
+flake8-quotes.multiline-quotes = "single"
+flake8-copyright.notice-rgx = '# SPDX-FileCopyrightText: 2023 Alexander Sosedkin <monk@unboiled.info>\n# SPDX-License-Identifier: GPL-3.0\n'
+preview = true
+
+[tool.ruff.format]
+quote-style = "single"
+preview = true

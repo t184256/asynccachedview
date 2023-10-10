@@ -5,37 +5,39 @@
 
 import pytest
 
-import asynccachedview.dataclasses
 import asynccachedview.cache.database
+import asynccachedview.dataclasses
 
 
 @asynccachedview.dataclasses.dataclass
 class Parent:
     """Example dataclass to represent a parent object."""
 
-    id: int
+    id: int  # noqa: A003
 
     @classmethod
-    async def __obtain__(cls, id_):
+    async def __obtain__(cls, id_):  # noqa: PLW3201
         return cls(id_)
 
     @asynccachedview.dataclasses.awaitable_property
     async def children(self):
         """Children objects."""
-        return (Child(id=0, parent_id=self.id, text='c0'),
-                Child(id=1, parent_id=self.id, text='c1'))
+        return (
+            Child(id=0, parent_id=self.id, text='c0'),
+            Child(id=1, parent_id=self.id, text='c1'),
+        )
 
 
 @asynccachedview.dataclasses.dataclass
 class Child:
     """Example dataclass to represent a child object."""
 
-    id: int
+    id: int  # noqa: A003
     parent_id: int
     text: str
 
     @classmethod
-    async def __obtain__(cls, id_):
+    async def __obtain__(cls, id_):  # noqa: PLW3201
         return cls(id=id_, parent_id=0, text=f'c{id_}')
 
     @asynccachedview.dataclasses.awaitable_property
@@ -44,7 +46,7 @@ class Child:
         return await Parent.__obtain__(self.parent_id)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_database() -> None:
     """Test database."""
     async with asynccachedview.cache.database.Database() as db:

@@ -4,30 +4,15 @@
   outputs = { self, nixpkgs, flake-utils }:
     let
       deps = pyPackages: with pyPackages; [
-        # TODO: list python dependencies
+        aiosqlite aiohttp
       ];
       tools = pkgs: pyPackages: (with pyPackages; [
         pytest pytestCheckHook
         coverage pytest-cov
         mypy pytest-mypy
-        (pkgs.callPackage pylama-package { python3Packages = pyPackages; })
-        pyflakes pycodestyle pydocstyle mccabe pylint
-        eradicate
         pytest-asyncio
-        aiohttp aioresponses
-        aiosqlite
-      ]);
-
-      pylama-package = {python3Packages, fetchpatch}:
-        python3Packages.pylama.overridePythonAttrs (_: {
-          # https://github.com/klen/pylama/issues/232
-          patches = [
-            (fetchpatch {
-              url = "https://github.com/klen/pylama/pull/233.patch";
-              hash = "sha256-jaVG/vuhkPiHEL+28Pf1VuClBVlFtlzDohT0mZasL04=";
-            })
-          ];
-        });
+        aioresponses
+      ] ++ [pkgs.ruff]);
 
       asynccachedview-package = {pkgs, python3Packages}:
         python3Packages.buildPythonPackage {
@@ -63,7 +48,7 @@
             buildInputs = [(defaultPython3Packages.python.withPackages deps)];
             nativeBuildInputs = tools pkgs defaultPython3Packages;
             shellHook = ''
-              export PYTHONASYNCIODEBUG=1 PYTHONWARNINGS=error
+              export PYTHONASYNCIODEBUG=1
             '';
           };
           packages.asynccachedview = asynccachedview;

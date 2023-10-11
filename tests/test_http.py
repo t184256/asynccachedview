@@ -5,6 +5,7 @@
 
 import dataclasses
 import http
+import pathlib
 
 import aiohttp
 import aioresponses
@@ -12,6 +13,8 @@ import pytest
 
 import asynccachedview.cache
 import asynccachedview.dataclasses
+import asynccachedview.sources
+from asynccachedview._nocache import NoCache
 
 
 @asynccachedview.dataclasses.dataclass
@@ -37,14 +40,11 @@ class Post:
             return cls(id_, j['text'])
 
     @asynccachedview.dataclasses.awaitable_property
-    async def comments(self):
+    async def comments(self) -> tuple['Comment', ...]:
         """Blog post's comments."""
-        url = 'http://ex.ample/comments'
+        u = 'http://ex.ample/comments'
         # shorter version, intentionally presenting both ways
-        async with asynccachedview.sources.http.json(
-            url,
-            post_id=self.id,
-        ) as j:
+        async with asynccachedview.sources.http.json(u, post_id=self.id) as j:
             return tuple(
                 Comment(id=c['id'], post_id=self.id, text=c['text']) for c in j
             )
@@ -68,10 +68,10 @@ class Comment:
             return cls(id_, j['post_id'], j['text'])
 
     @asynccachedview.dataclasses.awaitable_property
-    async def post(self):
+    async def post(self) -> Post:
         """Parent post."""
-        obtain_related = asynccachedview.dataclasses.obtain_related
-        return await obtain_related(self, Post, self.post_id)
+        cache = asynccachedview.cache.get_cache(self)
+        return await cache.obtain(Post, self.post_id)
 
 
 def setup_mocked_data(mocked):
@@ -165,13 +165,28 @@ async def test_not_using_cache() -> None:
         assert await comments[0].post is not p0
         assert await comments[1].post is not p0
         # check that the objects are not cached
-        assert p0._cache is None
-        assert c0._cache is None
-        assert c1._cache is None
-        assert comments[0]._cache is None
-        assert comments[1]._cache is None
+        assert p0._cache is NoCache
+        assert c0._cache is NoCache
+        assert c1._cache is NoCache
+        assert comments[0]._cache is NoCache
+        assert comments[1]._cache is NoCache
         # check doctext proxying
         assert p0.__doc__ == 'Example dataclass to represent a blog post.'
         assert Post.comments.__doc__ == (
             '[awaitable property] ' + "Blog post's comments."
         )
+
+
+@pytest.mark.asyncio()
+async def test_persistence(tmp_path: pathlib.Path) -> None:
+    """Test reopening cache and operating offline."""
+    async with asynccachedview.cache.Cache(tmp_path / 'db.sqlite') as acv:
+        with aioresponses.aioresponses() as mocked:
+            setup_mocked_data(mocked)
+            p0 = await acv.obtain(Post, 0)
+            comments = await p0.comments
+            assert [c.text for c in comments] == ['comment0', 'comment1']
+    async with asynccachedview.cache.Cache(tmp_path / 'db.sqlite') as acv:
+        p0 = await acv.obtain(Post, 0)
+        comments = await p0.comments
+        assert [c.text for c in comments] == ['comment0', 'comment1']

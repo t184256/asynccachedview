@@ -3,6 +3,6 @@
 
 """Module for defining cached dataclasses and operating on them."""
 
-from asynccachedview.cache._cache import Cache
+from asynccachedview.cache._cache import Cache, get_cache
 
-__all__ = ['Cache']
+__all__ = ['Cache', 'NoCache', 'get_cache']

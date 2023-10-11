@@ -11,12 +11,17 @@ import inspect
 
 from aiosqlitemydataclass import primary_key
 
+from asynccachedview._nocache import NoCache
+
 
 def awaitable_property(corofunc):
     """Mark an `async def` method as an awaitable property and enable caching.
 
-    The decorated coroutine method must take `self` as the only argument:
-    `async def somename(self):`.
+    The decorated coroutine method must take `self` as the only argument,
+    and must have an output type defined as either some primitive:
+    `async def somename(self) -> int:`
+    or an unbounded tuple of ACVDataclasses
+    `async def somename(self) -> tuple[SomeOtherDataclass, ...]:`.
     Specifying setters and deleters is not supported.
     """
     return _AwaitableProperty(corofunc)
@@ -34,19 +39,12 @@ class _AwaitableProperty:
         async def wrapper(obj):
             assert isinstance(obj, ACVDataclass)
             cache = object.__getattribute__(obj, '_cache')
-            if cache is not None:
-                try:
-                    return cache.cached_attribute(obj, self.attrname)
-                except KeyError:
-                    pass
-            results = await self.wrapped(obj)
-            if cache is not None:
-                results = cache.associate_attribute(
-                    obj,
-                    self.attrname,
-                    results,
-                )
-            return results
+            return await cache.cached_attribute_lookup(
+                obj,
+                self.attrname,
+                self.wrapped,
+            )
+            return await self.wrapped(obj)
 
         self.wrapper = wrapper
 
@@ -74,23 +72,7 @@ class _CacheHolder:
     __slots__ = ('cache',)
 
     def __init__(self):
-        self.cache = None
-
-
-async def obtain_related(dataclass_instance, desired_dataclass, *identity):
-    """Obtain an object + associate it with cache of existing instance."""
-    cache = dataclass_instance._cache_holder.cache  # noqa: SLF001
-    if cache is not None:
-        return await cache.obtain(desired_dataclass, *identity)
-    return await desired_dataclass.__obtain__(*identity)
-
-
-async def associate_related(dataclass_instance, x):
-    """Associate dataclass instance(s) with cache of existing instance."""
-    cache = dataclass_instance._cache_holder.cache  # noqa: SLF001
-    if cache is not None:
-        return cache.associate(x)
-    return None
+        self.cache = NoCache
 
 
 class ACVDataclass:
@@ -137,7 +119,7 @@ def dataclass(cls):
 
         def _set_cache(self, cache):  # HACKY
             # identity map should protect us from associating twice
-            assert self._cache_holder.cache is None
+            assert self._cache_holder.cache is NoCache
             self._cache_holder.cache = cache
 
     DataClass.__name__ = cls.__name__ + '.ACVDataclass'
@@ -148,10 +130,4 @@ def dataclass(cls):
     return DataClass
 
 
-__all__ = [
-    'dataclass',
-    'awaitable_property',
-    'obtain_related',
-    'associate_related',
-    'primary_key',
-]
+__all__ = ['dataclass', 'awaitable_property', 'primary_key']

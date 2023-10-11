@@ -4,17 +4,13 @@
 """Module for defining cached dataclasses and operating on them."""
 
 from asynccachedview.dataclasses._core import (
-    associate_related,
     awaitable_property,
     dataclass,
-    obtain_related,
     primary_key,
 )
 
 __all__ = [
-    'associate_related',
     'awaitable_property',
     'dataclass',
-    'obtain_related',
     'primary_key',
 ]

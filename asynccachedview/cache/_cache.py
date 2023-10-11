@@ -4,15 +4,39 @@
 """Module that implements caching objects in a database."""
 
 import collections
-import types
-import typing
+import dataclasses
+import marshal
 
 import aiosqlitemydataclass
 
 import asynccachedview.dataclasses._core
+from asynccachedview._nocache import NoCache
+from asynccachedview.dataclasses._restrictions import inspect_return_type
+
+_ACVDataclass = asynccachedview.dataclasses._core.ACVDataclass  # noqa: SLF001
 
 
-class Cache:
+def get_cache(dataclass_obj):
+    return dataclass_obj._cache or NoCache  # noqa: SLF001
+
+
+@dataclasses.dataclass(frozen=True)
+class AttrCacheRecord:
+    """A cached form of an attribute lookup."""
+
+    obj_cls: str = dataclasses.field(
+        metadata=aiosqlitemydataclass.primary_key(),
+    )
+    obj_id: str = dataclasses.field(
+        metadata=aiosqlitemydataclass.primary_key(),
+    )
+    attrname: str = dataclasses.field(
+        metadata=aiosqlitemydataclass.primary_key(),
+    )
+    data: bytes
+
+
+class Cache(aiosqlitemydataclass.Database):
     """Implements an optional cache for your asynccachedview dataclasses.
 
     Implements the following behaviour for dataclass objects:
@@ -34,26 +58,16 @@ class Cache:
     ```
     """
 
-    def __init__(self):
+    def __init__(self, path=None):
         """Create a new Cache object.
 
         TODO: offline mode(s) of operation.
         """
+        super().__init__(path)
         self.id_map = collections.defaultdict(dict)
         self.field_map = collections.defaultdict(
             lambda: collections.defaultdict(dict),
         )
-
-    async def __aenter__(self) -> typing.Self:
-        return self
-
-    async def __aexit__(
-        self,
-        _exc_type: type[BaseException] | None,
-        _exc_val: BaseException | None,
-        _exc_tb: types.TracebackType | None,
-    ) -> None:
-        pass
 
     async def obtain(self, desired_dataclass, *identity):
         """Obtain an instance of the desired dataclass with specified identity.
@@ -64,28 +78,41 @@ class Cache:
         try:
             return self.id_map[desired_dataclass][identity]
         except KeyError:
-            return self._associate_single(
-                await desired_dataclass.__obtain__(*identity),
-            )
+            pass
+        try:
+            obj = await self.get(desired_dataclass, *identity)
+        except aiosqlitemydataclass.RecordMissingError:
+            pass
+        else:
+            assert isinstance(obj, desired_dataclass)
+            self.id_map[desired_dataclass][identity] = obj
+            obj._set_cache(self)  # noqa: SLF001
+            return obj
+        obj = await desired_dataclass.__obtain__(*identity)
+        assert isinstance(obj, _ACVDataclass)
+        assert obj.__class__ == desired_dataclass
+        return await self._cache_single(obj, identity=identity)
 
-    def _associate_single(self, obj):
+    async def _cache_single(self, obj, identity=None):
         """Associates an already obtained/constructed object with the cache.
 
         Can return another object with same identity
         if that object was associated with the cache beforehand.
         """
-        _core = asynccachedview.dataclasses._core  # noqa: SLF001
-        assert isinstance(obj, _core.ACVDataclass)
         _cls = obj.__class__
-        _id = aiosqlitemydataclass.identity(obj)
+        if identity is None:
+            assert isinstance(obj, _ACVDataclass)
+            identity = identity or aiosqlitemydataclass.identity(obj)
         try:
-            return self.id_map[_cls][_id]
+            return self.id_map[_cls][identity]
         except KeyError:
-            self.id_map[_cls][_id] = obj
+            pass
+        await self.put(obj)
+        self.id_map[_cls][identity] = obj
         obj._set_cache(self)  # noqa: SLF001
         return obj
 
-    def associate(self, x):
+    async def cache(self, x):
         """Associates one or more existing dataclass instances with the cache.
 
         `x` might be a single object or a tuple of them.
@@ -93,27 +120,88 @@ class Cache:
         if these objects were associated with the cache beforehand.
         """
         if isinstance(x, tuple):
-            return tuple(self._associate_single(e) for e in x)
-        if isinstance(x, list):
-            msg = 'return a tuple, not a list'
-            raise TypeError(msg)
-        return self._associate_single(x)
+            return tuple([await self._cache_single(e) for e in x])
+        return await self._cache_single(x)
 
-    def associate_attribute(self, obj, attrname, attrval):
-        """Cache and associate `obj.attrname` awaitable property results.
+    async def cached_attribute_lookup(self, obj, attrname, coroutine):
+        """Return cached `obj.attrname` awaitable property result.
 
-        Used for caching results of dataclasses' awaitable properties.
+        Tries in-memory map first, database in case of a cache miss,
+        actually executes the coroutine if none of this have the answer.
         """
         try:
             return self.field_map[obj.__class__][obj.id][attrname]
         except KeyError:
-            attrval = self.associate(attrval)
-            self.field_map[obj.__class__][obj.id][attrname] = attrval
-            return attrval
+            pass
+        # not in cache, trying db
+        _cls = obj.__class__
+        _id = aiosqlitemydataclass.identity(obj)
+        _id_str = str(_id)
+        returns_tuple, tgt_cls = inspect_return_type(coroutine)
+        try:
+            rec = await self.get(
+                AttrCacheRecord,
+                _cls.__qualname__,
+                _id_str,
+                attrname,
+            )
+        except aiosqlitemydataclass.RecordMissingError:
+            pass
+        else:
+            res = marshal.loads(rec.data)  # noqa: S302
+            if isinstance(res, list) and issubclass(tgt_cls, _ACVDataclass):
+                assert returns_tuple
+                res = tuple([await self.obtain(tgt_cls, *r) for r in res])
+            elif issubclass(tgt_cls, _ACVDataclass):
+                res = await self.obtain(tgt_cls, *res)
+            self.field_map[obj.__class__][_id][attrname] = res
+            return res
+        # actually calculate it
+        res = await self._cached_attribute_lookup(
+            obj,
+            tgt_cls,
+            coroutine,
+            returns_tuple,
+        )
+        # cache objects in db
+        if issubclass(tgt_cls, _ACVDataclass):
+            res = await self.cache(res)
+        # store mapping in db
+        if issubclass(tgt_cls, _ACVDataclass):
+            if isinstance(res, tuple):
+                ids = [aiosqlitemydataclass.identity(r) for r in res]
+            else:
+                ids = aiosqlitemydataclass.identity(res)
+            data = marshal.dumps(ids)
+        else:
+            data = marshal.dumps(res)
+        rec = AttrCacheRecord(_cls.__qualname__, _id_str, attrname, data)
+        await self.put(rec)
+        # store mapping in ram
+        self.field_map[obj.__class__][obj.id][attrname] = res
+        return res
 
-    def cached_attribute(self, obj, attrname):
-        """Return cached `obj.attrname` awaitable property results.
-
-        Used for caching results of dataclasess' awaitable properties.
-        """
-        return self.field_map[obj.__class__][obj.id][attrname]
+    @staticmethod
+    async def _cached_attribute_lookup(
+        obj,
+        tgt_cls,
+        coroutine,
+        returns_tuple,
+    ):
+        # not in cache or db, actually calculate it
+        res = await coroutine(obj)
+        # verify types, cache objects in db
+        if isinstance(res, list):
+            msg = 'return a tuple, not a list'
+            raise TypeError(msg)
+        is_tuple = isinstance(res, tuple)
+        assert is_tuple == returns_tuple
+        if is_tuple:
+            if issubclass(tgt_cls, _ACVDataclass):
+                assert all(isinstance(e, tgt_cls) for e in res)
+            else:
+                assert not any(isinstance(e, _ACVDataclass) for e in res)
+            assert all(isinstance(e, tgt_cls) for e in res)
+        else:
+            assert isinstance(res, tgt_cls)
+        return res

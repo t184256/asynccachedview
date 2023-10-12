@@ -5,12 +5,16 @@
 
 import collections
 import dataclasses
-import marshal
 
 import aiosqlitemydataclass
 
 import asynccachedview.dataclasses._core
 from asynccachedview._nocache import NoCache
+from asynccachedview.cache._pickler import (
+    pickle_and_reduce_to_identities,
+    unpickle_and_collect_required,
+    unpickle_and_reconstruct_from_identities,
+)
 from asynccachedview.dataclasses._restrictions import inspect_return_type
 
 _ACVDataclass = asynccachedview.dataclasses._core.ACVDataclass  # noqa: SLF001
@@ -93,6 +97,9 @@ class Cache(aiosqlitemydataclass.Database):
         assert obj.__class__ == desired_dataclass
         return await self._cache_single(obj, identity=identity)
 
+    def _obtain_mapped(self, desired_dataclass, *identity):
+        return self.id_map[desired_dataclass][identity]
+
     async def _cache_single(self, obj, identity=None):
         """Associates an already obtained/constructed object with the cache.
 
@@ -148,14 +155,10 @@ class Cache(aiosqlitemydataclass.Database):
         except aiosqlitemydataclass.RecordMissingError:
             pass
         else:
-            res = marshal.loads(rec.data)  # noqa: S302
-            if isinstance(res, list) and issubclass(tgt_cls, _ACVDataclass):
-                assert returns_tuple
-                res = tuple([await self.obtain(tgt_cls, *r) for r in res])
-            elif issubclass(tgt_cls, _ACVDataclass):
-                res = await self.obtain(tgt_cls, *res)
-            self.field_map[obj.__class__][_id][attrname] = res
-            return res
+            needed = unpickle_and_collect_required(rec.data)
+            for n_cls, n_id in needed:
+                await self.obtain(n_cls, *n_id)
+            return unpickle_and_reconstruct_from_identities(rec.data, self)
         # actually calculate it
         res = await self._cached_attribute_lookup(
             obj,
@@ -167,14 +170,7 @@ class Cache(aiosqlitemydataclass.Database):
         if issubclass(tgt_cls, _ACVDataclass):
             res = await self.cache(res)
         # store mapping in db
-        if issubclass(tgt_cls, _ACVDataclass):
-            if isinstance(res, tuple):
-                ids = [aiosqlitemydataclass.identity(r) for r in res]
-            else:
-                ids = aiosqlitemydataclass.identity(res)
-            data = marshal.dumps(ids)
-        else:
-            data = marshal.dumps(res)
+        data = pickle_and_reduce_to_identities(res)
         rec = AttrCacheRecord(_cls.__qualname__, _id_str, attrname, data)
         await self.put(rec)
         # store mapping in ram

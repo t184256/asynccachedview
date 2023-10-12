@@ -123,7 +123,7 @@ def dataclass(cls):
             self._cache_holder.cache = cache
 
     DataClass.__name__ = cls.__name__ + '.ACVDataclass'
-    DataClass.__qualname__ = cls.__qualname__ + '.ACVDataclass'
+    DataClass.__qualname__ = cls.__qualname__
     DataClass.__module__ = cls.__module__
     DataClass.__doc__ = cls.__doc__
 

@@ -3,8 +3,6 @@
 
 """Module that implements a NoCache non-caching stub."""
 
-from asynccachedview.dataclasses._restrictions import inspect_return_type
-
 
 class NoCache:
     @staticmethod
@@ -19,9 +17,4 @@ class NoCache:
 
     @staticmethod
     async def cached_attribute_lookup(obj, _unused_attrname, coroutine):
-        inspect_return_type(coroutine)
-        res = await coroutine(obj)
-        if isinstance(res, list):
-            msg = 'return a tuple, not a list'
-            raise TypeError(msg)
-        return res
+        return await coroutine(obj)

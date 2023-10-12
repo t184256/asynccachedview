@@ -14,7 +14,6 @@ from asynccachedview.cache._pickler import (
     pickle_and_reduce_to_identities,
     unpickle_and_reconstruct_from_identities,
 )
-from asynccachedview.dataclasses._restrictions import inspect_return_type
 
 _ACVDataclass = asynccachedview.dataclasses._core.ACVDataclass  # noqa: SLF001
 
@@ -132,7 +131,6 @@ class Cache(aiosqlitemydataclass.Database):
         # not in cache, trying db
         _cls = obj.__class__
         _id_str = str(_id)
-        returns_tuple, tgt_cls = inspect_return_type(coroutine)
         in_db = True
         try:
             rec = await self.get(
@@ -146,47 +144,14 @@ class Cache(aiosqlitemydataclass.Database):
             in_db = False  # I don't want long tracebacks
         if not in_db:
             # actually calculate it
-            res = await self._uncached_attribute_lookup(
-                obj,
-                tgt_cls,
-                coroutine,
-                returns_tuple,
-            )
+            res = await coroutine(obj)
             # pickle
             data = pickle_and_reduce_to_identities(res)
             # store in db
             rec = AttrCacheRecord(_cls.__qualname__, _id_str, attrname, data)
             await self.put(rec)
         # unpickle and associate with cache
-        res = await unpickle_and_reconstruct_from_identities(
-            data,
-            self,
-        )
+        res = await unpickle_and_reconstruct_from_identities(data, self)
         # store mapping in ram
         self.field_map[obj.__class__][_id][attrname] = res
-        return res
-
-    @staticmethod
-    async def _uncached_attribute_lookup(
-        obj,
-        tgt_cls,
-        coroutine,
-        returns_tuple,
-    ):
-        # not in cache or db, actually calculate it
-        res = await coroutine(obj)
-        # verify types, cache objects in db
-        if isinstance(res, list):
-            msg = 'return a tuple, not a list'
-            raise TypeError(msg)
-        is_tuple = isinstance(res, tuple)
-        assert is_tuple == returns_tuple
-        if is_tuple:
-            if issubclass(tgt_cls, _ACVDataclass):
-                assert all(isinstance(e, tgt_cls) for e in res)
-            else:
-                assert not any(isinstance(e, _ACVDataclass) for e in res)
-            assert all(isinstance(e, tgt_cls) for e in res)
-        else:
-            assert isinstance(res, tgt_cls)
         return res

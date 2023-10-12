@@ -18,10 +18,9 @@ def awaitable_property(corofunc):
     """Mark an `async def` method as an awaitable property and enable caching.
 
     The decorated coroutine method must take `self` as the only argument,
-    and must have an output type defined as either some primitive:
-    `async def somename(self) -> int:`
-    or an unbounded tuple of ACVDataclasses
-    `async def somename(self) -> tuple[SomeOtherDataclass, ...]:`.
+    and return a pickleable result
+    made up of primitive values and other ACVDataclasses instances.
+
     Specifying setters and deleters is not supported.
     """
     return _AwaitableProperty(corofunc)

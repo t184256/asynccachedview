@@ -40,7 +40,7 @@ class Post:
             return cls(id_, j['text'])
 
     @asynccachedview.dataclasses.awaitable_property
-    async def comments(self) -> tuple['Comment', ...]:
+    async def comments(self):
         """Blog post's comments."""
         u = 'http://ex.ample/comments'
         # shorter version, intentionally presenting both ways

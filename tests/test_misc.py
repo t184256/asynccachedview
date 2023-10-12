@@ -54,6 +54,13 @@ class ED:
         """Return a tuple of a random type from an awaitable property."""
         return 0, 0
 
+    @asynccachedview.dataclasses.awaitable_property
+    async def complex_structure(self):
+        """Return a tuple and not a list from an awaitable property."""
+        recursive_list = [self]
+        recursive_list.append(recursive_list)
+        return (4, self, recursive_list)
+
 
 @pytest.mark.asyncio()
 async def test_types_using_cache() -> None:
@@ -66,6 +73,8 @@ async def test_types_using_cache() -> None:
         assert await ed.self_tuple_unbound == (ed, ed, ed)
         assert await ed.primitive_type == 0
         assert await ed.primitive_type_tuple == (0, 0)
+        c = await ed.complex_structure
+        assert c == (4, ed, c[2]) == (4, ed, [ed, c[2]])
 
 
 @pytest.mark.asyncio()
@@ -79,6 +88,8 @@ async def test_types_using_cache_twice(tmp_path: pathlib.Path) -> None:
         assert await ed.self_tuple_unbound == (ed, ed, ed)
         assert await ed.primitive_type == 0
         assert await ed.primitive_type_tuple == (0, 0)
+        c = await ed.complex_structure
+        assert c == (4, ed, c[2]) == (4, ed, [ed, c[2]])
     async with asynccachedview.cache.Cache(tmp_path / 'db.sqlite') as acv:
         ed = await acv.obtain(ED, 0)
         assert await ed.self is ed
@@ -87,6 +98,8 @@ async def test_types_using_cache_twice(tmp_path: pathlib.Path) -> None:
         assert await ed.self_list == [ed, ed]
         assert await ed.primitive_type == 0
         assert await ed.primitive_type_tuple == (0, 0)
+        c = await ed.complex_structure
+        assert c == (4, ed, c[2]) == (4, ed, [ed, c[2]])
 
 
 @pytest.mark.asyncio()
@@ -99,6 +112,8 @@ async def test_types_not_using_cache() -> None:
     assert await ed.self_list == [ed, ed]
     assert await ed.primitive_type == 0
     assert await ed.primitive_type_tuple == (0, 0)
+    c = await ed.complex_structure
+    assert c == (4, ed, c[2]) == (4, ed, [ed, c[2]])
 
 
 @pytest.mark.asyncio()

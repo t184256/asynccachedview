@@ -12,7 +12,6 @@ import asynccachedview.dataclasses._core
 from asynccachedview._nocache import NoCache
 from asynccachedview.cache._pickler import (
     pickle_and_reduce_to_identities,
-    unpickle_and_collect_required,
     unpickle_and_reconstruct_from_identities,
 )
 from asynccachedview.dataclasses._restrictions import inspect_return_type
@@ -95,12 +94,12 @@ class Cache(aiosqlitemydataclass.Database):
         obj = await desired_dataclass.__obtain__(*identity)
         assert isinstance(obj, _ACVDataclass)
         assert obj.__class__ == desired_dataclass
-        return await self._cache_single(obj, identity=identity)
+        return await self.cache(obj, identity=identity)
 
     def _obtain_mapped(self, desired_dataclass, *identity):
         return self.id_map[desired_dataclass][identity]
 
-    async def _cache_single(self, obj, identity=None):
+    async def cache(self, obj, identity=None):
         """Associates an already obtained/constructed object with the cache.
 
         Can return another object with same identity
@@ -119,32 +118,22 @@ class Cache(aiosqlitemydataclass.Database):
         obj._set_cache(self)  # noqa: SLF001
         return obj
 
-    async def cache(self, x):
-        """Associates one or more existing dataclass instances with the cache.
-
-        `x` might be a single object or a tuple of them.
-        Can return different objects with same identity
-        if these objects were associated with the cache beforehand.
-        """
-        if isinstance(x, tuple):
-            return tuple([await self._cache_single(e) for e in x])
-        return await self._cache_single(x)
-
     async def cached_attribute_lookup(self, obj, attrname, coroutine):
         """Return cached `obj.attrname` awaitable property result.
 
         Tries in-memory map first, database in case of a cache miss,
         actually executes the coroutine if none of this have the answer.
         """
+        _id = aiosqlitemydataclass.identity(obj)
         try:
-            return self.field_map[obj.__class__][obj.id][attrname]
+            return self.field_map[obj.__class__][_id][attrname]
         except KeyError:
             pass
         # not in cache, trying db
         _cls = obj.__class__
-        _id = aiosqlitemydataclass.identity(obj)
         _id_str = str(_id)
         returns_tuple, tgt_cls = inspect_return_type(coroutine)
+        in_db = True
         try:
             rec = await self.get(
                 AttrCacheRecord,
@@ -152,33 +141,33 @@ class Cache(aiosqlitemydataclass.Database):
                 _id_str,
                 attrname,
             )
+            data = rec.data
         except aiosqlitemydataclass.RecordMissingError:
-            pass
-        else:
-            needed = unpickle_and_collect_required(rec.data)
-            for n_cls, n_id in needed:
-                await self.obtain(n_cls, *n_id)
-            return unpickle_and_reconstruct_from_identities(rec.data, self)
-        # actually calculate it
-        res = await self._cached_attribute_lookup(
-            obj,
-            tgt_cls,
-            coroutine,
-            returns_tuple,
+            in_db = False  # I don't want long tracebacks
+        if not in_db:
+            # actually calculate it
+            res = await self._uncached_attribute_lookup(
+                obj,
+                tgt_cls,
+                coroutine,
+                returns_tuple,
+            )
+            # pickle
+            data = pickle_and_reduce_to_identities(res)
+            # store in db
+            rec = AttrCacheRecord(_cls.__qualname__, _id_str, attrname, data)
+            await self.put(rec)
+        # unpickle and associate with cache
+        res = await unpickle_and_reconstruct_from_identities(
+            data,
+            self,
         )
-        # cache objects in db
-        if issubclass(tgt_cls, _ACVDataclass):
-            res = await self.cache(res)
-        # store mapping in db
-        data = pickle_and_reduce_to_identities(res)
-        rec = AttrCacheRecord(_cls.__qualname__, _id_str, attrname, data)
-        await self.put(rec)
         # store mapping in ram
-        self.field_map[obj.__class__][obj.id][attrname] = res
+        self.field_map[obj.__class__][_id][attrname] = res
         return res
 
     @staticmethod
-    async def _cached_attribute_lookup(
+    async def _uncached_attribute_lookup(
         obj,
         tgt_cls,
         coroutine,

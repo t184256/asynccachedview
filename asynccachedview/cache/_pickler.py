@@ -4,6 +4,7 @@
 """Module that implements pickling ACVDataclasses to identities and back."""
 
 import io
+import os
 import pickle
 
 import aiosqlitemydataclass
@@ -27,35 +28,38 @@ def pickle_and_reduce_to_identities(obj):
     return f.getvalue()
 
 
-def unpickle_and_collect_required(b):
-    required = []
+async def unpickle_and_reconstruct_from_identities(b, cache):
+    f = io.BytesIO(b)
 
+    # Pass 1: gather the objects we need to associate/cache (sync)
+    collected = []
+
+    class CollectingUnpickler(pickle.Unpickler):
+        @staticmethod
+        def persistent_load(pid):
+            cls, id_ = pid
+            assert issubclass(cls, _ACVDataclass)
+            collected.append((cls, id_))
+
+    CollectingUnpickler(f).load()
+
+    # Inter-pass: cache/associate the objects (async)
+    for n_cls, n_id in collected:
+        await cache.obtain(n_cls, *n_id)
+
+    # Pass 2: gather the objects we need to associate/cache (sync)
     class AssociatingUnpickler(pickle.Unpickler):
         @staticmethod
         def persistent_load(pid):
             cls, id_ = pid
             assert issubclass(cls, _ACVDataclass)
-            required.append((cls, id_))
+            return cache._obtain_mapped(cls, *id_)  # noqa: SLF001 (sync)
 
-    f = io.BytesIO(b)
-    AssociatingUnpickler(f).load()
-    return required
-
-
-def unpickle_and_reconstruct_from_identities(b, cache):
-    class AssociatingUnpickler(pickle.Unpickler):
-        @staticmethod
-        def persistent_load(pid):
-            cls, id_ = pid
-            assert issubclass(cls, _ACVDataclass)
-            return cache._obtain_mapped(cls, *id_)  # noqa: SLF001
-
-    f = io.BytesIO(b)
+    f.seek(0, os.SEEK_SET)
     return AssociatingUnpickler(f).load()
 
 
 __all__ = [
     'pickle_and_reduce_to_identities',
-    'unpickle_and_collect_required',
     'unpickle_and_reconstruct_from_identities',
 ]

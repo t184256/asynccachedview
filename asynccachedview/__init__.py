@@ -6,6 +6,6 @@
 Make asynchronous requests, online and offline.
 """
 
-from asynccachedview import dataclasses, sources
+from asynccachedview import cache, dataclasses
 
-__all__ = ['dataclasses', 'sources']
+__all__ = ['cache', 'dataclasses']

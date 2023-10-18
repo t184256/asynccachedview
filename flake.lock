@@ -1,6 +1,6 @@
 {
   "nodes": {
-    "aiosqlitemydataclass-flake": {
+    "aiosqlitemydataclass": {
       "inputs": {
         "flake-utils": [
           "flake-utils"
@@ -20,6 +20,29 @@
       "original": {
         "owner": "t184256",
         "repo": "aiosqlitemydataclass",
+        "type": "github"
+      }
+    },
+    "asyncio-loop-local": {
+      "inputs": {
+        "flake-utils": [
+          "flake-utils"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1697628615,
+        "narHash": "sha256-i38sPVo0jDKY58021ZRrdCZviAHR3WzTkrcqDw2zmLQ=",
+        "owner": "t184256",
+        "repo": "asyncio-loop-local",
+        "rev": "ccc2c37a10710784c1196cd6c74391e2fb5a1db0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "t184256",
+        "repo": "asyncio-loop-local",
         "type": "github"
       }
     },
@@ -56,7 +79,8 @@
     },
     "root": {
       "inputs": {
-        "aiosqlitemydataclass-flake": "aiosqlitemydataclass-flake",
+        "aiosqlitemydataclass": "aiosqlitemydataclass",
+        "asyncio-loop-local": "asyncio-loop-local",
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs"
       }

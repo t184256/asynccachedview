@@ -1,13 +1,19 @@
 {
   description = "Make asynchronous requests, online and offline";
 
-  inputs.aiosqlitemydataclass-flake = {
+  inputs.aiosqlitemydataclass = {
     url = "github:t184256/aiosqlitemydataclass";
     inputs.nixpkgs.follows = "nixpkgs";
     inputs.flake-utils.follows = "flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils, aiosqlitemydataclass-flake }:
+  inputs.asyncio-loop-local = {
+    url = "github:t184256/asyncio-loop-local";
+    inputs.nixpkgs.follows = "nixpkgs";
+    inputs.flake-utils.follows = "flake-utils";
+  };
+
+  outputs = {nixpkgs, flake-utils, ...}@inputs:
     let
       deps = pyPackages: with pyPackages; [
         aiosqlite aiohttp
@@ -19,6 +25,7 @@
         mypy pytest-mypy
         pytest-asyncio
         aioresponses
+        asyncio-loop-local
       ] ++ [pkgs.ruff]);
 
       asynccachedview-package = {pkgs, python3Packages}:
@@ -41,7 +48,8 @@
           })];
       };
       overlay = nixpkgs.lib.composeManyExtensions [
-        aiosqlitemydataclass-flake.overlays.default
+        inputs.aiosqlitemydataclass.overlays.default
+        inputs.asyncio-loop-local.overlays.default
         asynccachedview-overlay
       ];
     in

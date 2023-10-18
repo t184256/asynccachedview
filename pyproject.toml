@@ -25,6 +25,7 @@ optional-dependencies.test = [
     "ruff",
     "pytest-asyncio",
     "aioresponses",
+    "asyncio-loop-local>=0.0.2",
 ]
 
 [tool.pytest.ini_options]

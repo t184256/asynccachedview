@@ -9,12 +9,14 @@ import pathlib
 
 import aiohttp
 import aioresponses
+import asyncio_loop_local
 import pytest
 
 import asynccachedview.cache
 import asynccachedview.dataclasses
-import asynccachedview.sources
 from asynccachedview._nocache import NoCache
+
+ClientSession = asyncio_loop_local.sticky_singleton_acm(aiohttp.ClientSession)
 
 
 @asynccachedview.dataclasses.dataclass
@@ -29,9 +31,8 @@ class Post:
 
     @classmethod
     async def __obtain__(cls, id_):  # noqa: PLW3201
-        # working with session directly, intentially presenting both ways
         async with (
-            asynccachedview.sources.http.shared_session() as sess,
+            ClientSession() as sess,
             sess.get('http://ex.ample/post', params={'id': id_}) as resp,
         ):
             assert resp.status == http.HTTPStatus.OK
@@ -42,9 +43,15 @@ class Post:
     @asynccachedview.dataclasses.awaitable_property
     async def comments(self):
         """Blog post's comments."""
-        u = 'http://ex.ample/comments'
-        # shorter version, intentionally presenting both ways
-        async with asynccachedview.sources.http.json(u, post_id=self.id) as j:
+        async with (
+            ClientSession() as sess,
+            sess.get(
+                'http://ex.ample/comments',
+                params={'post_id': self.id},
+            ) as resp,
+        ):
+            assert resp.status == http.HTTPStatus.OK
+            j = await resp.json()
             return tuple(
                 Comment(id=c['id'], post_id=self.id, text=c['text']) for c in j
             )
@@ -62,8 +69,12 @@ class Comment:
 
     @classmethod
     async def __obtain__(cls, id_):  # noqa: PLW3201
-        url = 'http://ex.ample/comment'
-        async with asynccachedview.sources.http.json(url, id=id_) as j:
+        async with (
+            ClientSession() as sess,
+            sess.get('http://ex.ample/comment', params={'id': id_}) as resp,
+        ):
+            assert resp.status == http.HTTPStatus.OK
+            j = await resp.json()
             assert j['id'] == id_
             return cls(id_, j['post_id'], j['text'])
 

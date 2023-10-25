@@ -7,58 +7,20 @@ Data model wrapper.
 """
 
 import dataclasses
-import inspect
+import typing
 
+import awaitable_property as lib_awp
 from aiosqlitemydataclass import primary_key
 
 from asynccachedview._nocache import NoCache
+from asynccachedview.dataclasses._obtainable import Obtainable
 
+if typing.TYPE_CHECKING:
+    from asynccachedview.cache._cache import Cache
 
-def awaitable_property(corofunc):
-    """Mark an `async def` method as an awaitable property and enable caching.
-
-    The decorated coroutine method must take `self` as the only argument,
-    and return a pickleable result
-    made up of primitive values and other ACVDataclasses instances.
-
-    Specifying setters and deleters is not supported.
-    """
-    return _AwaitableProperty(corofunc)
-
-
-class _AwaitableProperty:
-    __slots__ = ('__doc__', 'attrname', 'dataclass', 'wrapped', 'wrapper')
-
-    def __init__(self, corofunc):
-        self.dataclass = self.attrname = None  # get bound in __set_name__
-        self.wrapped = corofunc
-        assert inspect.iscoroutinefunction(corofunc)
-        self.__doc__ = f'[awaitable property] {corofunc.__doc__}'
-
-        async def wrapper(obj):
-            assert isinstance(obj, ACVDataclass)
-            cache = object.__getattribute__(obj, '_cache')
-            return await cache.cached_attribute_lookup(
-                obj,
-                self.attrname,
-                self.wrapped,
-            )
-            return await self.wrapped(obj)
-
-        self.wrapper = wrapper
-
-    def __set_name__(self, owner, name):  # on attaching to class
-        self.dataclass = owner
-        self.attrname = name
-
-    def __get__(self, obj, objtype=None):  # on getattr'ing the field
-        if obj is None:
-            return self
-        wrapper = self.wrapper.__get__(obj, obj.__class__)  # bind to object
-        wrapper = wrapper()
-        wrapper.__name__ = self.wrapped.__name__ + '.caching_wrapper'
-        wrapper.__qualname__ = self.wrapped.__qualname__ + '.caching_wrapper'
-        return wrapper
+_P = typing.ParamSpec('_P')
+_T_co = typing.TypeVar('_T_co', covariant=True)
+_T_obj = typing.TypeVar('_T_obj')
 
 
 class _CacheHolder:
@@ -70,63 +32,102 @@ class _CacheHolder:
 
     __slots__ = ('cache',)
 
-    def __init__(self):
-        self.cache = NoCache
+    def __init__(self) -> None:
+        self.cache: 'Cache | NoCache' = NoCache()
 
 
-class ACVDataclass:
-    """Purely an indicator that the class has been augmented."""
+@dataclasses.dataclass(frozen=True)
+class ACVDataclass(Obtainable[_P, _T_co]):
+    """Inherit from for your custom dataclasses from it to make them cacheable.
 
-    __slots__ = ()
-
-
-def dataclass(cls):
-    """Define a dataclass based on a python class.
-
-    Fields collectively acting as a primary key must be decorated as
-    `id: int = dataclasses.field(metadata=primary_key())` or
-    `id: int = dataclasses.field(metadata=primary_key({'more': 'metadata'}))`
-
-    Instances of the dataclass with the same values for these keys
-    are considered the same instance.
-
-    Has a similar interface to `@dataclasses.dataclass(frozen=True)`,
-    but also supports attaching objects to caches.
-
-    A dataclass `D` must also define `async def __obtain__(*identity)`
-    that acts as a constructor when you later do `cache.obtain(D, *identity)`.
-    """
-    # This is a regular frozen dataclass
-    dcls = dataclasses.dataclass(cls, frozen=True)
-
-    # This is the wrapper class that offers extra functionality
+    ```
     @dataclasses.dataclass(frozen=True)
-    class DataClass(dcls, ACVDataclass):
-        # Optionally remembers the cache associated with the object
-        # HACKY, mutable container in frozen dataclass
-        _cache_holder: _CacheHolder = dataclasses.field(
-            default_factory=_CacheHolder,
-            init=False,
-            repr=False,
-            hash=False,
-            compare=False,
-        )
+    class Record(ACVDataclass[[int], 'Record']):
+        id: int = dataclasses.field(metadata=primary_key())
+        str: s
 
-        @property
-        def _cache(self):  # HACKY
-            return self._cache_holder.cache
+        @classmethod
+        async def __obtain__(cls, i: int) -> Self:
+            return Record(i, await db.select_by_id(i))
+    ```
+    """
 
-        def _set_cache(self, cache):  # HACKY
-            # identity map should protect us from associating twice
-            assert self._cache_holder.cache is NoCache
-            self._cache_holder.cache = cache
+    slots = ('_cache_holder',)
 
-    DataClass.__name__ = cls.__name__ + '.ACVDataclass'
-    DataClass.__qualname__ = cls.__qualname__
-    DataClass.__module__ = cls.__module__
-    DataClass.__doc__ = cls.__doc__
+    _cache_holder: _CacheHolder = dataclasses.field(
+        default_factory=_CacheHolder,
+        init=False,
+        repr=False,
+        hash=False,
+        compare=False,
+    )
 
-    return DataClass
+    @property
+    def _cache(self) -> 'Cache | NoCache':  # HACKY
+        return self._cache_holder.cache
+
+    def _set_cache(self: typing.Self, cache: 'Cache') -> None:
+        # identity map should protect us from associating twice
+        assert self._cache_holder.cache is NoCache()
+        self._cache_holder.cache = cache
 
 
-__all__ = ['dataclass', 'awaitable_property', 'primary_key']
+###
+
+
+_T_val = typing.TypeVar('_T_val')
+
+
+async def cache_property_access(
+    obj: ACVDataclass[_P, _T_co],
+    corofunc: typing.Callable[
+        [ACVDataclass[_P, _T_co]],
+        typing.Coroutine[typing.Any, typing.Any, _T_val],
+    ],
+    attrname: str,
+) -> _T_val:
+    """Hooks into the property fetching process and performs caching."""
+    assert isinstance(obj, ACVDataclass)
+    cache = obj._cache  # noqa: SLF001
+    return await cache.cached_attribute_lookup(obj, attrname, corofunc)
+
+
+def awaitable_property(
+    corofunc: typing.Callable[
+        [_T_obj],
+        typing.Coroutine[typing.Any, typing.Any, _T_val],
+    ],
+) -> 'lib_awp.AwaitableProperty[_T_obj, _T_val, _T_val]':
+    """Mark an `async def` method as an awaitable property and enable caching.
+
+    The decorated coroutine method must take `self` as the only argument,
+    and return a pickleable result
+    made up of primitive values and other ACVDataclasses instances.
+
+    Specifying setters and deleters is not supported.
+    """
+    # Awkwardness ensues: https://github.com/python/typing/issues/548
+    # The function is basically just
+    # `return awaitable_property(transform=cache_property_access)(corofunc)`
+    # but it's also where we hide our homegrown kinds from the users.
+
+    # We know we can always cast _T_obj to ACVDataclass[_P, _T_obj]
+    corofunc_ = typing.cast(
+        typing.Callable[
+            [ACVDataclass[..., _T_obj]],
+            typing.Coroutine[typing.Any, typing.Any, _T_val],
+        ],
+        corofunc,
+    )
+
+    cacher = lib_awp.awaitable_property(transform=cache_property_access)
+    prop = cacher(corofunc_)
+
+    # ... and, vice versa, ACVDataclass[_P, _T_obj] to _T_obj
+    return typing.cast(
+        'lib_awp.AwaitableProperty[_T_obj, _T_val, _T_val]',
+        prop,
+    )
+
+
+__all__ = ['ACVDataclass', 'awaitable_property', 'primary_key']

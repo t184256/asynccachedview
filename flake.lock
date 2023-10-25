@@ -10,11 +10,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1696956277,
-        "narHash": "sha256-oNtbVWbm1elNBfjySf7UkkTBKy9Q/ur555IZcnZD+sY=",
+        "lastModified": 1697646514,
+        "narHash": "sha256-qtQxO+40rQSaZQl7Ac8JwYjWz8Pu0SlcNHeXdUlJ3ao=",
         "owner": "t184256",
         "repo": "aiosqlitemydataclass",
-        "rev": "8788f856e84e8b4b25d5c16230a09829ee397a0b",
+        "rev": "fc0ac61d23e12e0110d9ea94c529923eb2b85f00",
         "type": "github"
       },
       "original": {
@@ -33,16 +33,39 @@
         ]
       },
       "locked": {
-        "lastModified": 1697628615,
-        "narHash": "sha256-i38sPVo0jDKY58021ZRrdCZviAHR3WzTkrcqDw2zmLQ=",
+        "lastModified": 1697629407,
+        "narHash": "sha256-4BuOEfTlyBpllaA2n94KRvyQ1PHpdBJw58jkkrc3W0M=",
         "owner": "t184256",
         "repo": "asyncio-loop-local",
-        "rev": "ccc2c37a10710784c1196cd6c74391e2fb5a1db0",
+        "rev": "e7a8694c9b5ee9f4ac4638bb52d1341c677b2625",
         "type": "github"
       },
       "original": {
         "owner": "t184256",
         "repo": "asyncio-loop-local",
+        "type": "github"
+      }
+    },
+    "awaitable-property": {
+      "inputs": {
+        "flake-utils": [
+          "flake-utils"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1698256292,
+        "narHash": "sha256-x3E9U8HadJSfp/1NMpEEmlrjRyGgP3MP96i4alww574=",
+        "owner": "t184256",
+        "repo": "awaitable-property",
+        "rev": "04f9b1d9bf6824bc89e553f7f45448038e7170c9",
+        "type": "github"
+      },
+      "original": {
+        "owner": "t184256",
+        "repo": "awaitable-property",
         "type": "github"
       }
     },
@@ -65,11 +88,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1696757521,
-        "narHash": "sha256-cfgtLNCBLFx2qOzRLI6DHfqTdfWI+UbvsKYa3b3fvaA=",
+        "lastModified": 1698931758,
+        "narHash": "sha256-pwl9xS9JFMXXR1lUP/QOqO9hiZKukEcVUU1A0DKQwi4=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "2646b294a146df2781b1ca49092450e8a32814e1",
+        "rev": "b644d97bda6dae837d577e28383c10aa51e5e2d2",
         "type": "github"
       },
       "original": {
@@ -81,6 +104,7 @@
       "inputs": {
         "aiosqlitemydataclass": "aiosqlitemydataclass",
         "asyncio-loop-local": "asyncio-loop-local",
+        "awaitable-property": "awaitable-property",
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs"
       }

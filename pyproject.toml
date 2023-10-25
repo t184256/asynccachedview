@@ -17,6 +17,7 @@ dependencies = [
     "aiosqlite",
     "aiohttp",
     "aiosqlitemydataclass@git+https://github.com/t184256/aiosqlitemydataclass#egg=8788f856e84e8b4b25d5c16230a09829ee397a0b",
+    "awaitable-property@git+https://github.com/t184256/awaitable-property#egg=04f9b1d9bf6824bc89e553f7f45448038e7170c9",
 ] # TODO: list python dependencies
 optional-dependencies.test = [
     "pytest",
@@ -25,12 +26,14 @@ optional-dependencies.test = [
     "ruff",
     "pytest-asyncio",
     "aioresponses",
-    "asyncio-loop-local>=0.0.2",
+    "asyncio-loop-local>=0.0.3",
 ]
 
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
+
 [tool.pytest.ini_options]
-# TODO: reenable mypy
-addopts = "--cov --cov-report term-missing --doctest-modules"
+addopts = "--mypy --cov --cov-report term-missing --doctest-modules"
 
 [tool.coverage]
 run.source = [ "asynccachedview" ]
@@ -39,11 +42,13 @@ report.exclude_lines = [
   "# pragma: no cover",
   "if __name__ == .__main__.:",
   "if typing.TYPE_CHECKING:",
+  "...  # protocol",
 ]
 report.fail_under = 100
 
 [tool.mypy]
 strict = true
+new_type_inference = true
 
 [tool.ruff]
 line-length = 79

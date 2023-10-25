@@ -13,6 +13,12 @@
     inputs.flake-utils.follows = "flake-utils";
   };
 
+  inputs.awaitable-property = {
+    url = "github:t184256/awaitable-property";
+    inputs.nixpkgs.follows = "nixpkgs";
+    inputs.flake-utils.follows = "flake-utils";
+  };
+
   outputs = {nixpkgs, flake-utils, ...}@inputs:
     let
       deps = pyPackages: with pyPackages; [
@@ -26,6 +32,7 @@
         pytest-asyncio
         aioresponses
         asyncio-loop-local
+        awaitable-property
       ] ++ [pkgs.ruff]);
 
       asynccachedview-package = {pkgs, python3Packages}:
@@ -47,15 +54,38 @@
             };
           })];
       };
+      fresh-mypy-overlay = final: prev: {
+        pythonPackagesExtensions =
+          prev.pythonPackagesExtensions ++ [(pyFinal: pyPrev: {
+            mypy =
+              if prev.lib.versionAtLeast pyPrev.mypy.version "1.6.1"
+              then pyPrev.mypy
+              else pyPrev.mypy.overridePythonAttrs (_: {
+                version = "1.6.1";
+                patches = [];
+                src = prev.fetchFromGitHub {
+                  owner = "python";
+                  repo = "mypy";
+                  rev = "refs/tags/v1.6.1";
+                  hash = "sha256-X15wE/XH2VBclgfLJTb3JWRdvRtNShezy85tvdeHLZw=";
+                };
+              });
+          })];
+      };
       overlay = nixpkgs.lib.composeManyExtensions [
         inputs.aiosqlitemydataclass.overlays.default
         inputs.asyncio-loop-local.overlays.default
+        inputs.awaitable-property.overlays.default
         asynccachedview-overlay
+      ];
+      overlay-all = nixpkgs.lib.composeManyExtensions [
+        overlay
+        fresh-mypy-overlay
       ];
     in
       flake-utils.lib.eachDefaultSystem (system:
         let
-          pkgs = import nixpkgs { inherit system; overlays = [ overlay ]; };
+          pkgs = import nixpkgs { inherit system; overlays = [ overlay-all ]; };
           defaultPython3Packages = pkgs.python311Packages;  # force 3.11
 
           asynccachedview = pkgs.callPackage asynccachedview-package {

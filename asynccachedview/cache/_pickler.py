@@ -6,39 +6,57 @@
 import io
 import os
 import pickle
+import typing
 
 import aiosqlitemydataclass
 
-import asynccachedview.dataclasses._core
+from asynccachedview.dataclasses._core import ACVDataclass
 
-_ACVDataclass = asynccachedview.dataclasses._core.ACVDataclass  # noqa: SLF001
+_P = typing.ParamSpec('_P')
+_T_co = typing.TypeVar('_T_co', covariant=True)
+# a bit of a sloppy typing, but it should suffice
+_ID = tuple[typing.Any, ...]
+
+if typing.TYPE_CHECKING:
+    from aiosqlitemydataclass._extra_types import DataclassInstance
+
+    from asynccachedview.cache._cache import Cache
+
+    ACVDataclassAndID = tuple[type[ACVDataclass[_P, _T_co]], _ID]
 
 
 class DissociatingPickler(pickle.Pickler):
     @staticmethod
-    def persistent_id(obj):
-        if isinstance(obj, _ACVDataclass):
-            return obj.__class__, aiosqlitemydataclass.identity(obj)
+    # should it be any more specific? would it be of any use?
+    def persistent_id(
+        obj: typing.Any,
+    ) -> 'ACVDataclassAndID[_P, _T_co] | None':
+        if isinstance(obj, ACVDataclass):
+            obj_ = typing.cast('DataclassInstance', obj)
+            return obj.__class__, aiosqlitemydataclass.identity(obj_)
         return None
 
 
-def pickle_and_reduce_to_identities(obj):
+def pickle_and_reduce_to_identities(obj: typing.Any) -> bytes:
     f = io.BytesIO()
     DissociatingPickler(f).dump(obj)
     return f.getvalue()
 
 
-async def unpickle_and_reconstruct_from_identities(b, cache):
+async def unpickle_and_reconstruct_from_identities(
+    b: bytes,
+    cache: 'Cache',
+) -> typing.Any:
     f = io.BytesIO(b)
 
     # Pass 1: gather the objects we need to associate/cache (sync)
-    collected = []
+    collected: 'list[ACVDataclassAndID[..., typing.Any]]' = []
 
     class CollectingUnpickler(pickle.Unpickler):
         @staticmethod
-        def persistent_load(pid):
+        def persistent_load(pid: 'ACVDataclassAndID[..., typing.Any]') -> None:
             cls, id_ = pid
-            assert issubclass(cls, _ACVDataclass)
+            assert issubclass(cls, ACVDataclass)
             collected.append((cls, id_))
 
     CollectingUnpickler(f).load()
@@ -50,9 +68,11 @@ async def unpickle_and_reconstruct_from_identities(b, cache):
     # Pass 2: gather the objects we need to associate/cache (sync)
     class AssociatingUnpickler(pickle.Unpickler):
         @staticmethod
-        def persistent_load(pid):
+        def persistent_load(
+            pid: 'ACVDataclassAndID[_P, _T_co]',
+        ) -> 'ACVDataclass[_P, _T_co]':
             cls, id_ = pid
-            assert issubclass(cls, _ACVDataclass)
+            assert issubclass(cls, ACVDataclass)
             return cache._obtain_mapped(cls, *id_)  # noqa: SLF001 (sync)
 
     f.seek(0, os.SEEK_SET)

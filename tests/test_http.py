@@ -6,6 +6,7 @@
 import dataclasses
 import http
 import pathlib
+import typing
 
 import aiohttp
 import aioresponses
@@ -19,8 +20,8 @@ from asynccachedview._nocache import NoCache
 ClientSession = asyncio_loop_local.sticky_singleton_acm(aiohttp.ClientSession)
 
 
-@asynccachedview.dataclasses.dataclass
-class Post:
+@dataclasses.dataclass(frozen=True)
+class Post(asynccachedview.dataclasses.ACVDataclass[[int], 'Post']):
     """Example dataclass to represent a blog post."""
 
     id: int = dataclasses.field(  # noqa: A003
@@ -30,7 +31,7 @@ class Post:
     text: str
 
     @classmethod
-    async def __obtain__(cls, id_):  # noqa: PLW3201
+    async def __obtain__(cls, id_: int) -> typing.Self:  # noqa: PLW3201
         async with (
             ClientSession() as sess,
             sess.get('http://ex.ample/post', params={'id': id_}) as resp,
@@ -41,7 +42,7 @@ class Post:
             return cls(id_, j['text'])
 
     @asynccachedview.dataclasses.awaitable_property
-    async def comments(self):
+    async def comments(self) -> tuple['Comment', ...]:
         """Blog post's comments."""
         async with (
             ClientSession() as sess,
@@ -57,8 +58,8 @@ class Post:
             )
 
 
-@asynccachedview.dataclasses.dataclass
-class Comment:
+@dataclasses.dataclass(frozen=True)
+class Comment(asynccachedview.dataclasses.ACVDataclass[[int], 'Comment']):
     """Example dataclass to represent a blog post's comment."""
 
     id: int = dataclasses.field(  # noqa: A003
@@ -68,7 +69,7 @@ class Comment:
     text: str
 
     @classmethod
-    async def __obtain__(cls, id_):  # noqa: PLW3201
+    async def __obtain__(cls, id_: int) -> typing.Self:  # noqa: PLW3201
         async with (
             ClientSession() as sess,
             sess.get('http://ex.ample/comment', params={'id': id_}) as resp,
@@ -79,13 +80,13 @@ class Comment:
             return cls(id_, j['post_id'], j['text'])
 
     @asynccachedview.dataclasses.awaitable_property
-    async def post(self) -> Post:
+    async def post(self) -> 'Post':
         """Parent post."""
         cache = asynccachedview.cache.get_cache(self)
         return await cache.obtain(Post, self.post_id)
 
 
-def setup_mocked_data(mocked):
+def setup_mocked_data(mocked: aioresponses.core.aioresponses) -> None:
     """Configure `aioresponses.aioresponses()` to output example data."""
     mocked.get(
         'http://ex.ample/post?id=0',
@@ -176,11 +177,11 @@ async def test_not_using_cache() -> None:
         assert await comments[0].post is not p0
         assert await comments[1].post is not p0
         # check that the objects are not cached
-        assert p0._cache is NoCache
-        assert c0._cache is NoCache
-        assert c1._cache is NoCache
-        assert comments[0]._cache is NoCache
-        assert comments[1]._cache is NoCache
+        assert p0._cache is NoCache()
+        assert c0._cache is NoCache()
+        assert c1._cache is NoCache()
+        assert comments[0]._cache is NoCache()
+        assert comments[1]._cache is NoCache()
         # check doctext proxying
         assert p0.__doc__ == 'Example dataclass to represent a blog post.'
         assert Post.comments.__doc__ == (

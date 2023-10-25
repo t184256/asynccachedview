@@ -5,6 +5,7 @@
 
 import dataclasses
 import pathlib
+import typing
 
 import pytest
 
@@ -12,8 +13,8 @@ import asynccachedview.cache
 import asynccachedview.dataclasses
 
 
-@asynccachedview.dataclasses.dataclass
-class ED:
+@dataclasses.dataclass(frozen=True)
+class ED(asynccachedview.dataclasses.ACVDataclass[[int], 'ED']):
     """Example dataclass."""
 
     id: int = dataclasses.field(  # noqa: A003
@@ -21,43 +22,49 @@ class ED:
     )
 
     @classmethod
-    async def __obtain__(cls, id_):  # noqa: PLW3201
+    async def __obtain__(cls, id_: int) -> typing.Self:  # noqa: PLW3201
         return cls(id=id_)
 
     @asynccachedview.dataclasses.awaitable_property
-    async def self_list(self) -> list['ED']:
+    async def self_list(self: typing.Self) -> list[typing.Self]:
         """Return a list instead of a tuple from an awaitable property."""
         return [self, self]
 
     @asynccachedview.dataclasses.awaitable_property
-    async def self_tuple_bound(self) -> tuple['ED', 'ED']:
+    async def self_tuple_bound(
+        self: typing.Self,
+    ) -> tuple[typing.Self, typing.Self]:
         """Return a tuple and not a list from an awaitable property."""
         return self, self
 
     @asynccachedview.dataclasses.awaitable_property
-    async def self_tuple_unbound(self) -> tuple['ED', ...]:
+    async def self_tuple_unbound(self: typing.Self) -> tuple[typing.Self, ...]:
         """Return a tuple and not a list from an awaitable property."""
         return self, self, self
 
     @asynccachedview.dataclasses.awaitable_property
-    async def self(self) -> 'ED':
+    async def self(self: typing.Self) -> typing.Self:
         """Return self from an awaitable property."""
         return self
 
     @asynccachedview.dataclasses.awaitable_property
-    async def primitive_type(self) -> int:  # noqa: PLR6301
+    async def primitive_type(self: typing.Self) -> int:  # noqa: PLR6301
         """Return a random type from an awaitable property."""
         return 0
 
     @asynccachedview.dataclasses.awaitable_property
-    async def primitive_type_tuple(self) -> tuple[int, ...]:  # noqa: PLR6301
+    async def primitive_type_tuple(
+        self: typing.Self,  # noqa: PLR6301
+    ) -> tuple[int, ...]:
         """Return a tuple of a random type from an awaitable property."""
         return 0, 0
 
     @asynccachedview.dataclasses.awaitable_property
-    async def complex_structure(self):
+    async def complex_structure(
+        self: typing.Self,
+    ) -> tuple[int, typing.Self, list[typing.Any]]:
         """Return a tuple and not a list from an awaitable property."""
-        recursive_list = [self]
+        recursive_list: list[typing.Any] = [self]
         recursive_list.append(recursive_list)
         return (4, self, recursive_list)
 
@@ -121,7 +128,7 @@ async def test_nocache() -> None:
     """Test NoCache is the default associated cache."""
     ed0 = await ED.__obtain__(0)
     no_cache = asynccachedview.cache.get_cache(ed0)
-    assert no_cache.__name__ == 'NoCache'
+    assert no_cache.__class__.__name__ == 'NoCache'
     await no_cache.cache(ed0)
     assert asynccachedview.cache.get_cache(ed0) is no_cache
 
@@ -131,7 +138,7 @@ async def test_late_association() -> None:
     """Test creating object first and associating it with cache later."""
     ed0 = await ED.__obtain__(0)
     no_cache = asynccachedview.cache.get_cache(ed0)
-    assert no_cache.__name__ == 'NoCache'
+    assert no_cache.__class__.__name__ == 'NoCache'
 
     async with asynccachedview.cache.Cache() as acv:
         ed1 = await acv.obtain(ED, 1)

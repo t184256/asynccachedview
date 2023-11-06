@@ -29,7 +29,7 @@ class DissociatingPickler(pickle.Pickler):
     @staticmethod
     # should it be any more specific? would it be of any use?
     def persistent_id(
-        obj: typing.Any,
+        obj: typing.Any,  # noqa: ANN401
     ) -> 'ACVDataclassAndID[_P, _T_co] | None':
         if isinstance(obj, ACVDataclass):
             obj_ = typing.cast('DataclassInstance', obj)
@@ -37,7 +37,7 @@ class DissociatingPickler(pickle.Pickler):
         return None
 
 
-def pickle_and_reduce_to_identities(obj: typing.Any) -> bytes:
+def pickle_and_reduce_to_identities(obj: typing.Any) -> bytes:  # noqa: ANN401
     f = io.BytesIO()
     DissociatingPickler(f).dump(obj)
     return f.getvalue()
@@ -46,7 +46,7 @@ def pickle_and_reduce_to_identities(obj: typing.Any) -> bytes:
 async def unpickle_and_reconstruct_from_identities(
     b: bytes,
     cache: 'Cache',
-) -> typing.Any:
+) -> typing.Any:  # noqa: ANN401
     f = io.BytesIO(b)
 
     # Pass 1: gather the objects we need to associate/cache (sync)

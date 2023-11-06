@@ -11,6 +11,7 @@ if typing.TYPE_CHECKING:
     _T = typing.TypeVar('_T')
     _T_co = typing.TypeVar('_T_co', covariant=True)
     _P = typing.ParamSpec('_P')
+    _ID = tuple[typing.Any, ...]
 
 
 class NoCache:
@@ -33,8 +34,11 @@ class NoCache:
         return typing.cast('_T_co', await dataclass.__obtain__(*identity))
 
     @staticmethod
-    async def cache(x: typing.Any) -> None:
-        pass
+    async def cache(
+        obj: 'ACVDataclass[_P, _T_co]',
+        identity: '_ID | None' = None,  # noqa: ARG004
+    ) -> 'ACVDataclass[_P, _T_co]':
+        return obj
 
     @staticmethod
     async def cached_attribute_lookup(

@@ -54,16 +54,16 @@ new_type_inference = true
 line-length = 79
 select = [ "ALL" ]
 ignore = [
+  "ANN101",  # missing-type-self
+  "ANN102",  # missing-type-cls
   "D105",  # undocumented-magic-method
   "D203",  # one-blank-line-before-class
   "D213",  # multi-line-summary-second-line
-  "S101",  # assert
   "FIX002",  # line-contains-todo
   "FIX004",  # line-contains-hack
+  "S101",  # assert
   "TD002",  # missing-todo-author
   "TD003",  # missing-todo-link
-  # TODO: reenable mypy
-  "ANN",  # type checking
 ]
 per-file-ignores."tests/**" = [
   "INP001",  # implicit-namespace-package

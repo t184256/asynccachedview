@@ -141,7 +141,6 @@ class Cache(aiosqlitemydataclass.Database):
             '_ACVDataclass[_P, _T_co]',
             await desired_dataclass.__obtain__(*identity),
         )
-        await self.cache(obj)
         assert isinstance(obj, _ACVDataclass)
         assert obj.__class__ == desired_dataclass
         obj = await self.cache(obj, identity=identity)

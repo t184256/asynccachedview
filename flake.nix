@@ -24,6 +24,7 @@
       deps = pyPackages: with pyPackages; [
         aiosqlite aiohttp
         aiosqlitemydataclass
+        awaitable-property
       ];
       tools = pkgs: pyPackages: (with pyPackages; [
         pytest pytestCheckHook
@@ -32,7 +33,6 @@
         pytest-asyncio
         aioresponses
         asyncio-loop-local
-        awaitable-property
       ] ++ [pkgs.ruff]);
 
       asynccachedview-package = {pkgs, python3Packages}:

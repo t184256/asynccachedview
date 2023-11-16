@@ -17,9 +17,10 @@ dependencies = [
     "aiosqlite",
     "aiohttp",
     "aiosqlitemydataclass@git+https://github.com/t184256/aiosqlitemydataclass#egg=dd8b2b404b266667c2959f15b98260f68b39d602",
-    "awaitable-property@git+https://github.com/t184256/awaitable-property#egg=04f9b1d9bf6824bc89e553f7f45448038e7170c9",
+    "awaitable-property@git+https://github.com/t184256/awaitable-property#egg=0ff23b99d40b49bc3550047066eb399fd21d3483",
 ] # TODO: list python dependencies
 optional-dependencies.test = [
+    "asyncio-loop-local@git+https://github.com/t184256/asyncio-loop-local#egg=81e1143017773348383e584dd618e3f2c33b95ab",
     "pytest",
     "coverage", "pytest-cov",
     "mypy", "pytest-mypy",

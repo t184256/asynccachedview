@@ -10,11 +10,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1697646514,
-        "narHash": "sha256-qtQxO+40rQSaZQl7Ac8JwYjWz8Pu0SlcNHeXdUlJ3ao=",
+        "lastModified": 1700141942,
+        "narHash": "sha256-HWy6IUwRBupvP6ZuQuvLNQA2KnCBzJet0RuZ7nrMxeE=",
         "owner": "t184256",
         "repo": "aiosqlitemydataclass",
-        "rev": "fc0ac61d23e12e0110d9ea94c529923eb2b85f00",
+        "rev": "dd8b2b404b266667c2959f15b98260f68b39d602",
         "type": "github"
       },
       "original": {

@@ -16,7 +16,7 @@ requires-python = ">=3.11"
 dependencies = [
     "aiosqlite",
     "aiohttp",
-    "aiosqlitemydataclass@git+https://github.com/t184256/aiosqlitemydataclass#egg=dd8b2b404b266667c2959f15b98260f68b39d602",
+    "aiosqlitemydataclass@git+https://github.com/t184256/aiosqlitemydataclass#egg=52c4eef1d91ec29da88177b44f911754ba4023dd",
     "awaitable-property@git+https://github.com/t184256/awaitable-property#egg=0ff23b99d40b49bc3550047066eb399fd21d3483",
 ] # TODO: list python dependencies
 optional-dependencies.test = [

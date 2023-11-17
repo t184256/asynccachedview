@@ -3,10 +3,12 @@
 
 """Module that implements caching objects in a database."""
 
+import asyncio
 import collections
 import dataclasses
 import pathlib
 import typing
+import weakref
 
 import aiosqlitemydataclass
 
@@ -61,6 +63,15 @@ class AttrCacheRecord:
     data: bytes
 
 
+class WeakLockDict(weakref.WeakValueDictionary[typing.Hashable, asyncio.Lock]):
+    def __getitem__(self, k: typing.Hashable) -> asyncio.Lock:
+        try:
+            return super().__getitem__(k)
+        except KeyError:
+            r = self[k] = asyncio.Lock()
+            return r
+
+
 class Cache(aiosqlitemydataclass.Database):
     """Implements an optional cache for your asynccachedview dataclasses.
 
@@ -86,6 +97,7 @@ class Cache(aiosqlitemydataclass.Database):
     # convert into a per-class dual-cache object?
     id_map: '_DDict_ClassAndID[..., typing.Any]'
     field_map: '_DDict_ClassIDAndAttrname[..., typing.Any, typing.Any]'
+    _locks: WeakLockDict
 
     def __init__(self, path: pathlib.Path | str | None = None) -> None:
         """Create a new Cache object.
@@ -97,6 +109,7 @@ class Cache(aiosqlitemydataclass.Database):
         self.field_map = collections.defaultdict(
             lambda: collections.defaultdict(dict),
         )
+        self._locks = WeakLockDict()
 
     def _id_map_by_class(
         self: typing.Self,
@@ -118,33 +131,34 @@ class Cache(aiosqlitemydataclass.Database):
         Calls `desired_class.__obtain__(*identity)` under the hood
         caches the result and associates it with the cache.
         """
-        assert not unused_kwargs  # HACKY
+        async with self._locks[(desired_dataclass, *identity)]:
+            assert not unused_kwargs  # HACKY
 
-        try:
-            obj = self._id_map_by_class(desired_dataclass)[identity]
-            return typing.cast('_T_co', obj)
-        except KeyError:
-            pass
-        try:
+            try:
+                obj = self._id_map_by_class(desired_dataclass)[identity]
+                return typing.cast('_T_co', obj)
+            except KeyError:
+                pass
+            try:
+                obj = typing.cast(
+                    '_ACVDataclass[_P, _T_co]',
+                    await self.get(desired_dataclass, *identity),
+                )
+            except aiosqlitemydataclass.RecordMissingError:
+                pass
+            else:
+                assert isinstance(obj, desired_dataclass)
+                self.id_map[desired_dataclass][identity] = obj
+                obj._set_cache(self)  # noqa: SLF001
+                return typing.cast('_T_co', obj)
             obj = typing.cast(
                 '_ACVDataclass[_P, _T_co]',
-                await self.get(desired_dataclass, *identity),
+                await desired_dataclass.__obtain__(*identity),
             )
-        except aiosqlitemydataclass.RecordMissingError:
-            pass
-        else:
-            assert isinstance(obj, desired_dataclass)
-            self.id_map[desired_dataclass][identity] = obj
-            obj._set_cache(self)  # noqa: SLF001
+            assert isinstance(obj, _ACVDataclass)
+            assert obj.__class__ == desired_dataclass
+            obj = await self.cache(obj, identity=identity)
             return typing.cast('_T_co', obj)
-        obj = typing.cast(
-            '_ACVDataclass[_P, _T_co]',
-            await desired_dataclass.__obtain__(*identity),
-        )
-        assert isinstance(obj, _ACVDataclass)
-        assert obj.__class__ == desired_dataclass
-        obj = await self.cache(obj, identity=identity)
-        return typing.cast('_T_co', obj)
 
     def _obtain_mapped(
         self,
@@ -194,41 +208,47 @@ class Cache(aiosqlitemydataclass.Database):
         Tries in-memory map first, database in case of a cache miss,
         actually executes the coroutine if none of this have the answer.
         """
-        _id = aiosqlitemydataclass.identity(
-            typing.cast('DataclassInstance', obj),
-        )
-        try:
-            field_map = typing.cast(
-                collections.defaultdict['_ID', dict[str, '_T']],
-                self.field_map[obj.__class__],
+        async with self._locks[(obj, attrname, coroutine_func)]:
+            _id = aiosqlitemydataclass.identity(
+                typing.cast('DataclassInstance', obj),
             )
-            return field_map[_id][attrname]
-        except KeyError:
-            pass
-        # not in cache, trying db
-        _cls = obj.__class__
-        _id_str = str(_id)
-        in_db = True
-        try:
-            rec = await self.get(
-                AttrCacheRecord,
-                _cls.__qualname__,
-                _id_str,
-                attrname,
-            )
-            data = rec.data
-        except aiosqlitemydataclass.RecordMissingError:
-            in_db = False  # I don't want long tracebacks
-        if not in_db:
-            # actually calculate it
-            res = await coroutine_func(obj)
-            # pickle
-            data = pickle_and_reduce_to_identities(res)
-            # store in db
-            rec = AttrCacheRecord(_cls.__qualname__, _id_str, attrname, data)
-            await self.put(rec)
-        # unpickle and associate with cache
-        res = await unpickle_and_reconstruct_from_identities(data, self)
-        # store mapping in ram
-        self.field_map[obj.__class__][_id][attrname] = res
-        return res
+            try:
+                field_map = typing.cast(
+                    collections.defaultdict['_ID', dict[str, '_T']],
+                    self.field_map[obj.__class__],
+                )
+                return field_map[_id][attrname]
+            except KeyError:
+                pass
+            # not in cache, trying db
+            _cls = obj.__class__
+            _id_str = str(_id)
+            in_db = True
+            try:
+                rec = await self.get(
+                    AttrCacheRecord,
+                    _cls.__qualname__,
+                    _id_str,
+                    attrname,
+                )
+                data = rec.data
+            except aiosqlitemydataclass.RecordMissingError:
+                in_db = False  # I don't want long tracebacks
+            if not in_db:
+                # actually calculate it
+                res = await coroutine_func(obj)
+                # pickle
+                data = pickle_and_reduce_to_identities(res)
+                # store in db
+                rec = AttrCacheRecord(
+                    _cls.__qualname__,
+                    _id_str,
+                    attrname,
+                    data,
+                )
+                await self.put(rec)
+            # unpickle and associate with cache
+            res = await unpickle_and_reconstruct_from_identities(data, self)
+            # store mapping in ram
+            self.field_map[obj.__class__][_id][attrname] = res
+            return res

@@ -237,8 +237,11 @@ class Cache(aiosqlitemydataclass.Database):
             if not in_db:
                 # actually calculate it
                 res = await coroutine_func(obj)
-                # pickle
-                data = pickle_and_reduce_to_identities(res)
+                # pickle and collect ACVDataclass instances
+                data, collected = pickle_and_reduce_to_identities(res)
+                # associate
+                for c, i in collected:
+                    await self.cache(c, identity=i)
                 # store in db
                 rec = AttrCacheRecord(
                     _cls.__qualname__,
@@ -247,7 +250,7 @@ class Cache(aiosqlitemydataclass.Database):
                     data,
                 )
                 await self.put(rec)
-            # unpickle and associate with cache
+            # unpickle
             res = await unpickle_and_reconstruct_from_identities(data, self)
             # store mapping in ram
             self.field_map[obj.__class__][_id][attrname] = res

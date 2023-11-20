@@ -18,29 +18,33 @@ _T_co = typing.TypeVar('_T_co', covariant=True)
 _ID = tuple[typing.Any, ...]
 
 if typing.TYPE_CHECKING:
-    from aiosqlitemydataclass._extra_types import DataclassInstance
-
     from asynccachedview.cache._cache import Cache
 
+    ACVInstanceAndID = tuple[ACVDataclass[_P, _T_co], _ID]
     ACVDataclassAndID = tuple[type[ACVDataclass[_P, _T_co]], _ID]
 
 
-class DissociatingPickler(pickle.Pickler):
-    @staticmethod
-    # should it be any more specific? would it be of any use?
-    def persistent_id(
-        obj: typing.Any,  # noqa: ANN401
-    ) -> 'ACVDataclassAndID[_P, _T_co] | None':
-        if isinstance(obj, ACVDataclass):
-            obj_ = typing.cast('DataclassInstance', obj)
-            return obj.__class__, aiosqlitemydataclass.identity(obj_)
-        return None
+def pickle_and_reduce_to_identities(
+    obj: typing.Any,  # noqa: ANN401
+) -> tuple[bytes, list['ACVInstanceAndID[typing.Any, typing.Any]']]:
+    collected = []
 
+    class DissociatingPickler(pickle.Pickler):
+        @staticmethod
+        # should it be any more specific? would it be of any use?
+        def persistent_id(
+            obj: typing.Any,  # noqa: ANN401
+        ) -> 'ACVDataclassAndID[_P, _T_co] | None':
+            if isinstance(obj, ACVDataclass):
+                i = aiosqlitemydataclass.identity(obj)
+                collected.append((obj, i))
+                return obj.__class__, i
+            return None
 
-def pickle_and_reduce_to_identities(obj: typing.Any) -> bytes:  # noqa: ANN401
     f = io.BytesIO()
     DissociatingPickler(f).dump(obj)
-    return f.getvalue()
+
+    return f.getvalue(), collected
 
 
 async def unpickle_and_reconstruct_from_identities(

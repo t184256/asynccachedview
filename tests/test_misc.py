@@ -53,8 +53,8 @@ class ED(asynccachedview.dataclasses.ACVDataclass[[int], 'ED']):
         return 0
 
     @asynccachedview.dataclasses.awaitable_property
-    async def primitive_type_tuple(
-        self: typing.Self,  # noqa: PLR6301
+    async def primitive_type_tuple(  # noqa: PLR6301
+        self: typing.Self,
     ) -> tuple[int, ...]:
         """Return a tuple of a random type from an awaitable property."""
         return 0, 0

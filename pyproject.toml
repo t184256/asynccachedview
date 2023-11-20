@@ -15,7 +15,7 @@ classifiers = [
 requires-python = ">=3.11"
 dependencies = [
     "aiosqlite",
-    "aiohttp",
+    "aiohttp != 3.9",  # https://github.com/pnuckowski/aioresponses/issues/247
     "aiosqlitemydataclass@git+https://github.com/t184256/aiosqlitemydataclass#egg=52c4eef1d91ec29da88177b44f911754ba4023dd",
     "awaitable-property@git+https://github.com/t184256/awaitable-property#egg=0ff23b99d40b49bc3550047066eb399fd21d3483",
 ] # TODO: list python dependencies

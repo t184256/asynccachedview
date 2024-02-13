@@ -17,7 +17,7 @@ import asynccachedview.dataclasses
 class ED(asynccachedview.dataclasses.ACVDataclass[[int], 'ED']):
     """Example dataclass."""
 
-    id: int = dataclasses.field(  # noqa: A003
+    id: int = dataclasses.field(
         metadata=asynccachedview.dataclasses.primary_key(),
     )
 

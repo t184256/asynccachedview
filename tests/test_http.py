@@ -24,7 +24,7 @@ ClientSession = asyncio_loop_local.sticky_singleton_acm(aiohttp.ClientSession)
 class Post(asynccachedview.dataclasses.ACVDataclass[[int], 'Post']):
     """Example dataclass to represent a blog post."""
 
-    id: int = dataclasses.field(  # noqa: A003
+    id: int = dataclasses.field(
         metadata=asynccachedview.dataclasses.primary_key(),
     )
 
@@ -62,7 +62,7 @@ class Post(asynccachedview.dataclasses.ACVDataclass[[int], 'Post']):
 class Comment(asynccachedview.dataclasses.ACVDataclass[[int], 'Comment']):
     """Example dataclass to represent a blog post's comment."""
 
-    id: int = dataclasses.field(  # noqa: A003
+    id: int = dataclasses.field(
         metadata=asynccachedview.dataclasses.primary_key(),
     )
     post_id: int

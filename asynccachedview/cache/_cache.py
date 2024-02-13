@@ -92,6 +92,7 @@ class Cache(aiosqlitemydataclass.Database):
         o = acv.obtain(MyClass, 1)  # caches it
         c = await o.children  # caches the children objects as well
     ```
+
     """
 
     # convert into a per-class dual-cache object?

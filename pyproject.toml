@@ -16,11 +16,11 @@ requires-python = ">=3.11"
 dependencies = [
     "aiosqlite",
     "aiohttp != 3.9",  # https://github.com/pnuckowski/aioresponses/issues/247
-    "aiosqlitemydataclass@git+https://github.com/t184256/aiosqlitemydataclass#egg=52c4eef1d91ec29da88177b44f911754ba4023dd",
-    "awaitable-property@git+https://github.com/t184256/awaitable-property#egg=0ff23b99d40b49bc3550047066eb399fd21d3483",
+    "aiosqlitemydataclass@git+https://github.com/t184256/aiosqlitemydataclass#egg=t184256/aiosqlitemydataclass/4ba62079497be98bd97308f2c63da94fa7e14da",
+    "awaitable-property@git+https://github.com/t184256/awaitable-property#egg=5578e9cebb1c2c8d8da5c852372d6cc79cf21607",
 ] # TODO: list python dependencies
 optional-dependencies.test = [
-    "asyncio-loop-local@git+https://github.com/t184256/asyncio-loop-local#egg=81e1143017773348383e584dd618e3f2c33b95ab",
+    "asyncio-loop-local@git+https://github.com/t184256/asyncio-loop-local#egg=4764b203320444763d9576f96f2d9539ead3e753",
     "pytest",
     "coverage", "pytest-cov",
     "mypy", "pytest-mypy",
@@ -53,8 +53,9 @@ new_type_inference = true
 
 [tool.ruff]
 line-length = 79
-select = [ "ALL" ]
-ignore = [
+preview = true
+lint.select = [ "ALL" ]
+lint.ignore = [
   "ANN101",  # missing-type-self
   "ANN102",  # missing-type-cls
   "D105",  # undocumented-magic-method
@@ -66,16 +67,16 @@ ignore = [
   "TD002",  # missing-todo-author
   "TD003",  # missing-todo-link
 ]
-per-file-ignores."tests/**" = [
+lint.per-file-ignores."tests/**" = [
+  "D101",  # undocumented-public-class
+  "D102",  # undocumented-public-method
   "INP001",  # implicit-namespace-package
   "S101",  # assert
   "SLF001",  # private-member-access
+  "PLC2701",  # import-private-name
 ]
-flake8-quotes.inline-quotes = "single"
-flake8-quotes.multiline-quotes = "single"
-flake8-copyright.notice-rgx = '# SPDX-FileCopyrightText: 2023 Alexander Sosedkin <monk@unboiled.info>\n# SPDX-License-Identifier: GPL-3.0\n'
-preview = true
-
-[tool.ruff.format]
-quote-style = "single"
-preview = true
+lint.flake8-quotes.inline-quotes = "single"
+lint.flake8-quotes.multiline-quotes = "single"
+lint.flake8-copyright.notice-rgx = '# SPDX-FileCopyrightText: 2023 Alexander Sosedkin <monk@unboiled.info>\n# SPDX-License-Identifier: GPL-3.0\n'
+format.quote-style = "single"
+format.preview = true

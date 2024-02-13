@@ -58,16 +58,16 @@
         pythonPackagesExtensions =
           prev.pythonPackagesExtensions ++ [(pyFinal: pyPrev: {
             mypy =
-              if prev.lib.versionAtLeast pyPrev.mypy.version "1.6.1"
+              if prev.lib.versionAtLeast pyPrev.mypy.version "1.7.0"
               then pyPrev.mypy
               else pyPrev.mypy.overridePythonAttrs (_: {
-                version = "1.6.1";
+                version = "1.8.0";
                 patches = [];
                 src = prev.fetchFromGitHub {
                   owner = "python";
                   repo = "mypy";
-                  rev = "refs/tags/v1.6.1";
-                  hash = "sha256-X15wE/XH2VBclgfLJTb3JWRdvRtNShezy85tvdeHLZw=";
+                  rev = "refs/tags/v1.8.0";
+                  hash = "sha256-1YgAswqLadOVV5ZSi5ZXWYK3p114882IlSx0nKChGPs=";
                 };
               });
           })];

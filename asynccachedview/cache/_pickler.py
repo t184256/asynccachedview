@@ -5,7 +5,7 @@
 
 import io
 import os
-import pickle
+import pickle  # noqa: S403
 import typing
 
 import aiosqlitemydataclass

@@ -22,7 +22,7 @@ N = 100
 class T(asynccachedview.dataclasses.ACVDataclass[[int], 'T']):
     """Example dataclass."""
 
-    id: int = dataclasses.field(  # noqa: A003
+    id: int = dataclasses.field(
         metadata=asynccachedview.dataclasses.primary_key(),
     )
 

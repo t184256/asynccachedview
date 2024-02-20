@@ -18,6 +18,7 @@ from asynccachedview.cache._pickler import (
     unpickle_and_reconstruct_from_identities,
 )
 from asynccachedview.dataclasses._core import ACVDataclass as _ACVDataclass
+from asynccachedview.dataclasses._core import ACVDataclassEx as _ACVDataclassEx
 
 if typing.TYPE_CHECKING:
     from aiosqlitemydataclass._extra_types import DataclassInstance
@@ -27,16 +28,21 @@ if typing.TYPE_CHECKING:
     _T = typing.TypeVar('_T')
     _P = typing.ParamSpec('_P')
     _T_co = typing.TypeVar('_T_co', covariant=True)
+
+    _ACVDataclassAny: typing.TypeAlias = (
+        _ACVDataclass[_P, _T_co] | _ACVDataclassEx[_P, _T_co]
+    )
+
     # a bit of a sloppy typing, but it should suffice
     _ID = tuple[typing.Any, ...]
-    _ACVDataclassAndID = tuple[type[_ACVDataclass[_P, _T_co]], _ID]
-    _Dict_ID = dict[_ID, _ACVDataclass[_P, _T_co]]
+    _ACVDataclassAndID = tuple[type[_ACVDataclassAny[_P, _T_co]], _ID]
+    _Dict_ID = dict[_ID, _ACVDataclassAny[_P, _T_co]]
     _DDict_ClassAndID = collections.defaultdict[
-        type[_ACVDataclass[_P, _T_co]],
+        type[_ACVDataclassAny[_P, _T_co]],
         _Dict_ID[_P, _T_co],
     ]
     _DDict_ClassIDAndAttrname = collections.defaultdict[
-        type[_ACVDataclass[_P, _T_co]],
+        type[_ACVDataclassAny[_P, _T_co]],
         collections.defaultdict[_ID, dict[str, _T]],
     ]
 
@@ -114,7 +120,7 @@ class Cache(aiosqlitemydataclass.Database):
 
     def _id_map_by_class(
         self: typing.Self,
-        desired_dataclass: 'type[_ACVDataclass[_P, _T_co]]',
+        desired_dataclass: 'type[_ACVDataclassAny[_P, _T_co]]',
     ) -> '_Dict_ID[_P, _T_co]':
         return typing.cast(
             '_Dict_ID[_P, _T_co]',
@@ -123,7 +129,7 @@ class Cache(aiosqlitemydataclass.Database):
 
     async def obtain(
         self,
-        desired_dataclass: 'type[_ACVDataclass[_P, _T_co]]',
+        desired_dataclass: 'type[_ACVDataclassAny[_P, _T_co]]',
         *identity: '_P.args',
         **unused_kwargs: '_P.kwargs',
     ) -> '_T_co':
@@ -142,7 +148,7 @@ class Cache(aiosqlitemydataclass.Database):
                 pass
             try:
                 obj = typing.cast(
-                    '_ACVDataclass[_P, _T_co]',
+                    '_ACVDataclassAny[_P, _T_co]',
                     await self.get(desired_dataclass, *identity),
                 )
             except aiosqlitemydataclass.RecordMissingError:
@@ -152,29 +158,37 @@ class Cache(aiosqlitemydataclass.Database):
                 self.id_map[desired_dataclass][identity] = obj
                 obj._set_cache(self)  # noqa: SLF001
                 return typing.cast('_T_co', obj)
-            obj = typing.cast(
-                '_ACVDataclass[_P, _T_co]',
-                await desired_dataclass.__obtain__(*identity),
-            )
-            assert isinstance(obj, _ACVDataclass)
+            if hasattr(desired_dataclass, '__obtain__'):
+                obj = typing.cast(
+                    '_ACVDataclassAny[_P, _T_co]',
+                    await desired_dataclass.__obtain__(*identity),
+                )
+                assert isinstance(obj, _ACVDataclass)
+            else:
+                assert hasattr(desired_dataclass, '__obtain_ex__')
+                obj = typing.cast(
+                    '_ACVDataclassEx[_P, _T_co]',
+                    await desired_dataclass.__obtain_ex__(self, *identity),
+                )
+                assert isinstance(obj, _ACVDataclassEx)
             assert obj.__class__ == desired_dataclass
             obj = await self.cache(obj, identity=identity)
             return typing.cast('_T_co', obj)
 
     def _obtain_mapped(
         self,
-        desired_dataclass: 'type[_ACVDataclass[_P, _T_co]]',
+        desired_dataclass: 'type[_ACVDataclassAny[_P, _T_co]]',
         *identity: '_P.args',
         **unused_kwargs: '_P.kwargs',
-    ) -> '_ACVDataclass[_P, _T_co]':
+    ) -> '_ACVDataclassAny[_P, _T_co]':
         assert not unused_kwargs
         return self._id_map_by_class(desired_dataclass)[identity]
 
     async def cache(
         self,
-        obj: '_ACVDataclass[_P, _T_co]',
+        obj: '_ACVDataclassAny[_P, _T_co]',
         identity: '_ID | None' = None,
-    ) -> '_ACVDataclass[_P, _T_co]':
+    ) -> '_ACVDataclassAny[_P, _T_co]':
         """Associates an already obtained/constructed object with the cache.
 
         Can return another object with same identity
@@ -182,7 +196,7 @@ class Cache(aiosqlitemydataclass.Database):
         """
         _cls = obj.__class__
         if identity is None:
-            assert isinstance(obj, _ACVDataclass)
+            assert isinstance(obj, _ACVDataclass | _ACVDataclassEx)
             identity = identity or aiosqlitemydataclass.identity(
                 typing.cast('DataclassInstance', obj),
             )
@@ -195,12 +209,39 @@ class Cache(aiosqlitemydataclass.Database):
         obj._set_cache(self)  # noqa: SLF001
         return obj
 
+    async def cache_attribute(
+        self,
+        _cls: 'type[_ACVDataclassAny[_P, _T_co]]',
+        _id: '_P.args',
+        attrname: str,
+        res: '_T',
+    ) -> None:
+        async with self._locks[(_cls, _id, attrname)]:
+            _id_str = str(_id)
+            # pickle and collect ACVDataclassAny instances
+            data, collected = pickle_and_reduce_to_identities(res)
+            # associate
+            for c, i in collected:
+                await self.cache(c, identity=i)
+            # store in db
+            rec = AttrCacheRecord(
+                _cls.__qualname__,
+                _id_str,
+                attrname,
+                data,
+            )
+            await self.put(rec)
+            # unpickle
+            res = await unpickle_and_reconstruct_from_identities(data, self)
+            # store mapping in ram
+            self.field_map[_cls][_id][attrname] = res
+
     async def cached_attribute_lookup(
         self,
-        obj: '_ACVDataclass[_P, _T_co]',
+        obj: '_ACVDataclassAny[_P, _T_co]',
         attrname: str,
         coroutine_func: typing.Callable[
-            ['_ACVDataclass[_P, _T_co]'],
+            ['_ACVDataclassAny[_P, _T_co]'],
             typing.Coroutine[typing.Any, typing.Any, '_T'],
         ],
     ) -> '_T':
@@ -238,7 +279,7 @@ class Cache(aiosqlitemydataclass.Database):
             if not in_db:
                 # actually calculate it
                 res = await coroutine_func(obj)
-                # pickle and collect ACVDataclass instances
+                # pickle and collect ACVDataclassAny instances
                 data, collected = pickle_and_reduce_to_identities(res)
                 # associate
                 for c, i in collected:

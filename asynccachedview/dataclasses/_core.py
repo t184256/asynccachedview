@@ -13,7 +13,7 @@ import awaitable_property as lib_awp
 from aiosqlitemydataclass import primary_key
 
 from asynccachedview._nocache import NoCache
-from asynccachedview.dataclasses._obtainable import Obtainable
+from asynccachedview.dataclasses._obtainable import Obtainable, ObtainableEx
 
 if typing.TYPE_CHECKING:
     from asynccachedview.cache._cache import Cache
@@ -37,7 +37,7 @@ class _CacheHolder:
 
 
 @dataclasses.dataclass(frozen=True)
-class ACVDataclass(Obtainable[_P, _T_co]):
+class ACVDataclassBase:
     """Inherit from for your custom dataclasses from it to make them cacheable.
 
     ```
@@ -72,6 +72,14 @@ class ACVDataclass(Obtainable[_P, _T_co]):
         self._cache_holder.cache = cache
 
 
+class ACVDataclass(ACVDataclassBase, Obtainable[_P, _T_co]):
+    pass
+
+
+class ACVDataclassEx(ACVDataclassBase, ObtainableEx[_P, _T_co]):
+    pass
+
+
 ###
 
 
@@ -79,15 +87,15 @@ _T_val = typing.TypeVar('_T_val')
 
 
 async def cache_property_access(
-    obj: ACVDataclass[_P, _T_co],
+    obj: ACVDataclass[_P, _T_co] | ACVDataclassEx[_P, _T_co],
     corofunc: typing.Callable[
-        [ACVDataclass[_P, _T_co]],
+        [ACVDataclass[_P, _T_co] | ACVDataclassEx[_P, _T_co]],
         typing.Coroutine[typing.Any, typing.Any, _T_val],
     ],
     attrname: str,
 ) -> _T_val:
     """Hooks into the property fetching process and performs caching."""
-    assert isinstance(obj, ACVDataclass)
+    assert isinstance(obj, ACVDataclass | ACVDataclassEx)
     cache = obj._cache  # noqa: SLF001
     return await cache.cached_attribute_lookup(obj, attrname, corofunc)
 
@@ -111,10 +119,10 @@ def awaitable_property(
     # `return awaitable_property(transform=cache_property_access)(corofunc)`
     # but it's also where we hide our homegrown kinds from the users.
 
-    # We know we can always cast _T_obj to ACVDataclass[_P, _T_obj]
+    # We know we can always cast _T_obj to ACVDataclass(Ex)[_P, _T_obj]
     corofunc_ = typing.cast(
         typing.Callable[
-            [ACVDataclass[..., _T_obj]],
+            [ACVDataclass[..., _T_obj] | ACVDataclassEx[..., _T_obj]],
             typing.Coroutine[typing.Any, typing.Any, _T_val],
         ],
         corofunc,
@@ -123,7 +131,7 @@ def awaitable_property(
     cacher = lib_awp.awaitable_property(transform=cache_property_access)
     prop = cacher(corofunc_)
 
-    # ... and, vice versa, ACVDataclass[_P, _T_obj] to _T_obj
+    # ... and, vice versa, ACVDataclass(Ex)[_P, _T_obj] to _T_obj
     return typing.cast(
         'lib_awp.AwaitableProperty[_T_obj, _T_val, _T_val]',
         prop,

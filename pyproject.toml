@@ -73,7 +73,6 @@ lint.per-file-ignores."tests/**" = [
   "INP001",  # implicit-namespace-package
   "S101",  # assert
   "SLF001",  # private-member-access
-  "PLC2701",  # import-private-name
 ]
 lint.flake8-quotes.inline-quotes = "single"
 lint.flake8-quotes.multiline-quotes = "single"

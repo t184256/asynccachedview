@@ -5,12 +5,14 @@
 
 from asynccachedview.dataclasses._core import (
     ACVDataclass,
+    ACVDataclassEx,
     awaitable_property,
     primary_key,
 )
 
 __all__ = [
     'ACVDataclass',
+    'ACVDataclassEx',
     'awaitable_property',
     'primary_key',
 ]

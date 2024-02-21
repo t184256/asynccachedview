@@ -48,7 +48,7 @@ if typing.TYPE_CHECKING:
 
 
 def get_cache(
-    dataclass_obj: '_ACVDataclass[_P, _T_co]',
+    dataclass_obj: '_ACVDataclassAny[_P, _T_co]',
 ) -> '_Cache | NoCache':
     return dataclass_obj._cache or NoCache()  # noqa: SLF001
 

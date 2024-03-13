@@ -16,11 +16,11 @@ requires-python = ">=3.11"
 dependencies = [
     "aiosqlite",
     "aiohttp != 3.9",  # https://github.com/pnuckowski/aioresponses/issues/247
-    "aiosqlitemydataclass@git+https://github.com/t184256/aiosqlitemydataclass#egg=t184256/aiosqlitemydataclass/4ba62079497be98bd97308f2c63da94fa7e14da",
-    "awaitable-property@git+https://github.com/t184256/awaitable-property#egg=5578e9cebb1c2c8d8da5c852372d6cc79cf21607",
+    "aiosqlitemydataclass@git+https://github.com/t184256/aiosqlitemydataclass#egg=t184256/aiosqlitemydataclass/f0726a1226f0f821f007632f7c9fa2cf1386a508",
+    "awaitable-property@git+https://github.com/t184256/awaitable-property#egg=57c39d031c852dcf67457461d335ace5a1102c23",
 ] # TODO: list python dependencies
 optional-dependencies.test = [
-    "asyncio-loop-local@git+https://github.com/t184256/asyncio-loop-local#egg=4764b203320444763d9576f96f2d9539ead3e753",
+    "asyncio-loop-local@git+https://github.com/t184256/asyncio-loop-local#egg=51aad647f8bd643bed5632e9eb4d213bb3afdd22",
     "pytest",
     "coverage", "pytest-cov",
     "mypy", "pytest-mypy",

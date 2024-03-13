@@ -81,7 +81,7 @@ class WeakLockDict(weakref.WeakValueDictionary[typing.Hashable, asyncio.Lock]):
 class Cache(aiosqlitemydataclass.Database):
     """Implements an optional cache for your asynccachedview dataclasses.
 
-    Implements the following behaviour for dataclass objects:
+    Implements the following behavior for dataclass objects:
     * associates objects created through it with a cache,
       objects accessed through them also associate them with a cache
     * preserves object identity,

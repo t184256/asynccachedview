@@ -18,23 +18,28 @@ dependencies = [
     "aiohttp != 3.9",  # https://github.com/pnuckowski/aioresponses/issues/247
     "aiosqlitemydataclass@git+https://github.com/t184256/aiosqlitemydataclass#egg=t184256/aiosqlitemydataclass/f0726a1226f0f821f007632f7c9fa2cf1386a508",
     "awaitable-property@git+https://github.com/t184256/awaitable-property#egg=57c39d031c852dcf67457461d335ace5a1102c23",
-] # TODO: list python dependencies
+]
 optional-dependencies.test = [
     "asyncio-loop-local@git+https://github.com/t184256/asyncio-loop-local#egg=51aad647f8bd643bed5632e9eb4d213bb3afdd22",
     "pytest",
     "coverage", "pytest-cov",
-    "mypy", "pytest-mypy",
-    "ruff",
     "pytest-asyncio",
     "aioresponses",
-    "asyncio-loop-local>=0.0.3",
+]
+optional-dependencies.lint = [
+  "pre-commit",
+  "mypy",
+  "ruff",
+  "codespell",
+  "actionlint-py",
+  "pre-commit-hooks",
 ]
 
 [tool.setuptools.package-data]
 "*" = ["py.typed"]
 
 [tool.pytest.ini_options]
-addopts = "--mypy --cov --cov-report term-missing --doctest-modules"
+addopts = "--cov --cov-report term-missing --doctest-modules"
 
 [tool.coverage]
 run.source = [ "asynccachedview" ]
@@ -49,7 +54,6 @@ report.fail_under = 100
 
 [tool.mypy]
 strict = true
-new_type_inference = true
 
 [tool.ruff]
 line-length = 79
@@ -61,6 +65,7 @@ lint.ignore = [
   "D105",  # undocumented-magic-method
   "D203",  # one-blank-line-before-class
   "D213",  # multi-line-summary-second-line
+  "Q001",  # bad-quotes-multiline-string
   "FIX002",  # line-contains-todo
   "FIX004",  # line-contains-hack
   "S101",  # assert

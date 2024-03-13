@@ -54,24 +54,6 @@
             };
           })];
       };
-      fresh-mypy-overlay = final: prev: {
-        pythonPackagesExtensions =
-          prev.pythonPackagesExtensions ++ [(pyFinal: pyPrev: {
-            mypy =
-              if prev.lib.versionAtLeast pyPrev.mypy.version "1.7.0"
-              then pyPrev.mypy
-              else pyPrev.mypy.overridePythonAttrs (_: {
-                version = "1.8.0";
-                patches = [];
-                src = prev.fetchFromGitHub {
-                  owner = "python";
-                  repo = "mypy";
-                  rev = "refs/tags/v1.8.0";
-                  hash = "sha256-1YgAswqLadOVV5ZSi5ZXWYK3p114882IlSx0nKChGPs=";
-                };
-              });
-          })];
-      };
       overlay = nixpkgs.lib.composeManyExtensions [
         inputs.aiosqlitemydataclass.overlays.default
         inputs.asyncio-loop-local.overlays.default
@@ -80,7 +62,6 @@
       ];
       overlay-all = nixpkgs.lib.composeManyExtensions [
         overlay
-        fresh-mypy-overlay
       ];
     in
       flake-utils.lib.eachDefaultSystem (system:
